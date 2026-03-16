@@ -60,6 +60,76 @@ To validate the correctness of our method, we conducted evaluations on open-sour
 | DeepseekMATH-7b-RL | 14.9% |
 
 
+## 🔌 API-based Inference
+
+In addition to the vLLM pipeline, this repo supports API-based inference for closed-source models (e.g. GPT-5.2). Two prompt modes are available:
+
+- **standard** — standard CoT with `\boxed{}` final answer
+- **cautious** — instructs the model to say `\boxed{UNSURE}` rather than guess, enabling precision-focused evaluation
+
+### Prerequisites
+
+```bash
+pip install openai tqdm
+export OPENAI_API_KEY="sk-..."
+```
+
+### Running Inference
+
+```bash
+# Standard prompt, 100 problems
+python inference/inference_api.py \
+  --provider openai --model gpt-5.2 \
+  --save_path inference/results/GPT-5.2_standard.jsonl \
+  --prompt standard --num_samples 100
+
+# Cautious prompt, 100 problems
+python inference/inference_api.py \
+  --provider openai --model gpt-5.2 \
+  --save_path inference/results/GPT-5.2_cautious.jsonl \
+  --prompt cautious --num_samples 100
+```
+
+Use `--num_samples 0` for the full dataset (2,821 problems). Inference is resume-safe — rerun the same command to skip already-completed items.
+
+### Evaluating Results
+
+```bash
+# Evaluate standard results (existing pipeline)
+cd evaluation
+bash sh/eval.sh omni-math ../inference/results/GPT-5.2_standard.jsonl GPT-5.2-standard
+
+# Evaluate cautious results (3-way classification)
+python math_eval_cautious.py \
+  --data_file ../inference/results/GPT-5.2_cautious.jsonl \
+  --output_dir output/GPT-5.2-cautious/omni-math/
+```
+
+### Viewing Results
+
+```bash
+# Standard metrics (accuracy %)
+cat evaluation/output/GPT-5.2-standard/omni-math/math_eval_cot_metrics.json
+
+# Cautious metrics (accuracy of attempted, abstentions, mixed errors)
+cat evaluation/output/GPT-5.2-cautious/omni-math/cautious_metrics.json
+
+# Per-problem cautious details
+cat evaluation/output/GPT-5.2-cautious/omni-math/cautious_eval.jsonl
+```
+
+The cautious evaluator classifies each problem into one of four categories:
+| Category | Condition |
+|---|---|
+| `correct` | No UNSURE, last boxed answer matches ground truth |
+| `incorrect_standard` | No UNSURE, last boxed answer is wrong |
+| `incorrect_mixed` | Has both UNSURE and non-UNSURE boxed values |
+| `abstained` | All boxed values are UNSURE (excluded from accuracy) |
+
+### Adding New Providers
+
+Create a new file in `inference/providers/` implementing the `Provider` base class, then register it in `inference/providers/__init__.py`. See `openai_provider.py` for reference.
+
 ## 🎖️ Acknowledgements
 
 We would like to thank the [Qwen2.5-MATH](https://github.com/QwenLM/Qwen2.5-MATH) projects as well as the people who gave us this rule-based evaluation suggestion.

@@ -1,0 +1,23 @@
+error: unexpected argument '--sandbox' found
+
+  tip: to pass '--sandbox' as a value, use '-- --sandbox'
+
+Usage: codex exec resume --json --model <MODEL> <SESSION_ID> [PROMPT]
+
+For more information, try '--help'.
+error: unexpected argument '--sandbox' found
+
+  tip: to pass '--sandbox' as a value, use '-- --sandbox'
+
+Usage: codex exec resume --json --model <MODEL> <SESSION_ID> [PROMPT]
+
+For more information, try '--help'.
+error: unexpected argument '--sandbox' found
+
+  tip: to pass '--sandbox' as a value, use '-- --sandbox'
+
+Usage: codex exec resume --json --model <MODEL> <SESSION_ID> [PROMPT]
+
+For more information, try '--help'.
+<string>:1: SyntaxWarning: 'set' object is not callable; perhaps you missed a comma?
+<string>:1: SyntaxWarning: 'set' object is not callable; perhaps you missed a comma?
