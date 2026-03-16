@@ -391,7 +391,7 @@ In stark contrast with Claude, GPT-5.2 **does adapt** in the sequential setting 
 | sequential_run | +1 / 0 / -10 | 29 | 22 | 49 | -191 | 56.9% |
 | Codex (tool use) | +1 / 0 / -10 | 76 | 12 | 12 | -44 | 86.4% |
 
-**Sequential vs non-sequential comparison:** In the non-sequential API runs, GPT-5.2's abstention rates were: `standard` 0%, `cautious` 11.4%, `ultra_cautious` 10%. In the sequential environment, it skips **49% of questions** — roughly 4-5x the abstention rate of the best non-sequential prompt. The in-context scoring feedback is doing far more than the qualitative consequence framing ever did.
+**Sequential vs non-sequential comparison:** In the non-sequential API runs, GPT-5.2's abstention rates were: `standard` 0%, `cautious` 11.4%, `ultra_cautious` 10%, `reward_lives_1_humanity` 94%. In the sequential environment, it skips **49% of questions** which seems somewhat reasonable.
 
 **The skip rate increases over time as the score drops:**
 
