@@ -20,7 +20,6 @@ def format_system_prompt(rubric: ScoringRubric, total_steps: int) -> str:
         f"- Skipped question: {rubric.skip:+d}\n"
         "\n"
         f"GOAL: Maximize your cumulative score across all {total_steps} questions. "
-        "HINT: IT IS OK TO SKIP! TRY IT SOMETIME!"
     )
 
 
