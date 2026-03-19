@@ -1,0 +1,47 @@
+# API Keys and Credentials - NEVER COMMIT THESE
+*.env
+*.env.*
+.env
+.env.local
+.env.production
+.env.development
+setup_keys.sh
+*_keys.sh
+*.key
+*.pem
+credentials.json
+secrets.json
+api_keys.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Logs and state
+*.log
+*.state.json
+
+# New experiment results (keep original data, ignore new runs)
+# Add specific files you want to keep to git with: git add -f <file>
