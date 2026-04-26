@@ -39,8 +39,10 @@ from inference.providers.openai_provider import OpenAIProvider  # noqa: E402
 from inference.providers.anthropic_provider import AnthropicProvider  # noqa: E402
 from inference.providers.google_provider import GoogleProvider  # noqa: E402
 from inference.providers.openrouter_provider import OpenRouterProvider  # noqa: E402
+from inference.providers.vllm_provider import VLLMProvider  # noqa: E402
 
 register_provider("openai", OpenAIProvider)
 register_provider("anthropic", AnthropicProvider)
 register_provider("google", GoogleProvider)
 register_provider("openrouter", OpenRouterProvider)
+register_provider("vllm", VLLMProvider)
