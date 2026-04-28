@@ -22,6 +22,7 @@ from tqdm.asyncio import tqdm_asyncio
 
 from inference.prompts import PROMPTS
 from inference.providers import get_provider
+from inference import fewshot
 
 
 def load_dataset(path: str) -> list[dict]:
@@ -97,10 +98,28 @@ async def run_inference(args):
         system_prompt = prompt_text
         user_prefix = None
 
+    # --- Few-shot preamble (base models) ---
+    fewshot_preamble: str | None = None
+    stop_sequences: list[str] | None = None
+    if args.fewshot_variant:
+        if args.fewshot_variant not in fewshot.VARIANTS:
+            raise ValueError(
+                f"Unknown fewshot variant '{args.fewshot_variant}'. Available: {fewshot.VARIANTS}"
+            )
+        fewshot_preamble = fewshot.build_preamble(args.fewshot_variant, prompt_text)
+        stop_sequences = fewshot.STOP_SEQUENCES
+        # In few-shot mode the consequence framing is already embedded inline
+        # before each Q (when applicable); the system prompt becomes empty so
+        # the autocomplete starts cleanly with the preamble.
+        system_prompt = ""
+        user_prefix = None
+
     # --- Provider ---
     provider_kwargs = {}
     if args.api_key:
         provider_kwargs["api_key"] = args.api_key
+    if args.base_model:
+        provider_kwargs["base_model"] = True
     provider = get_provider(args.provider, **provider_kwargs)
 
     # --- Async inference with immediate writes ---
@@ -111,7 +130,16 @@ async def run_inference(args):
     async def process(item: dict):
         nonlocal completed
         problem = item.get("problem") or item.get("question", "")
-        user_msg = f"{user_prefix}\n\nProblem:\n{problem}" if user_prefix else problem
+        if fewshot_preamble is not None:
+            user_msg = (
+                fewshot_preamble
+                + "\n\n"
+                + fewshot.format_query(problem, args.fewshot_variant, prompt_text)
+            )
+        elif user_prefix:
+            user_msg = f"{user_prefix}\n\nProblem:\n{problem}"
+        else:
+            user_msg = problem
         async with sem:
             response = await provider.generate(
                 system_prompt=system_prompt,
@@ -119,6 +147,7 @@ async def run_inference(args):
                 model=args.model,
                 temperature=args.temperature,
                 max_completion_tokens=args.max_tokens,
+                stop=stop_sequences,
             )
         result = dict(item)
         result["model_generation"] = response or ""
@@ -152,6 +181,9 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling (default: 0)")
     parser.add_argument("--api_key", type=str, default=None, help="API key (overrides env variable)")
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
+    parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
+    parser.add_argument("--fewshot_variant", type=str, default=None, choices=fewshot.VARIANTS,
+                        help=f"Enable few-shot scaffolding for base models. One of: {', '.join(fewshot.VARIANTS)}")
     return parser.parse_args()
 
 
