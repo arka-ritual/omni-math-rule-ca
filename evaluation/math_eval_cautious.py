@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Cautious-prompt evaluator for Omni-MATH-Rule.
 
-Three-way classification per problem:
-  - "incorrect_mixed": has both UNSURE and non-UNSURE boxed values (scored as incorrect)
-  - "abstained": all boxed values are UNSURE (ignored from accuracy)
-  - "correct" / "incorrect_standard": no UNSURE boxed values, graded normally
+Per-problem classification:
+  - "abstained": explicit abstention via \\boxed{UNSURE} or
+                 "Answer/Abstain decision: ABSTAIN" (base-model few-shot).
+                 Excluded from accuracy.
+  - "indeterminate": no \\boxed{} and no explicit abstain marker — model
+                     produced no parseable answer. Excluded from accuracy
+                     but tracked separately so ill-formed outputs aren't
+                     conflated with deliberate abstention.
+  - "incorrect_mixed": both UNSURE and non-UNSURE boxed values (scored incorrect).
+  - "correct" / "incorrect_standard": graded normally on the last boxed value.
 
 Usage:
     python evaluation/math_eval_cautious.py \
@@ -15,6 +21,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
 
 # Allow running from repo root or from evaluation/
@@ -22,6 +29,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 from grader import math_equal
 from parser import extract_answer, strip_string
+
+
+# Matches the abstention marker used in base-model few-shot scaffolding,
+# e.g. "Answer/Abstain decision: ABSTAIN" (case-insensitive, tolerant of
+# extra whitespace and minor punctuation around the keyword).
+_ABSTAIN_MARKER_RE = re.compile(
+    r"answer\s*/\s*abstain\s+decision\s*:\s*abstain\b",
+    re.IGNORECASE,
+)
+
+
+def has_explicit_abstain_marker(text: str) -> bool:
+    return bool(_ABSTAIN_MARKER_RE.search(text or ""))
 
 
 def extract_all_boxed(text: str) -> list[str]:
@@ -81,10 +101,22 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
     has_non_unsure = any(not f for f in unsure_flags)
 
     if not all_boxed:
-        # No boxed output at all — treat as abstained
+        # No boxed output at all. Distinguish two cases:
+        #   - explicit abstention via "Answer/Abstain decision: ABSTAIN"
+        #     (base-model few-shot output that happens to omit \boxed{UNSURE})
+        #   - otherwise: indeterminate (model failed to produce a parseable
+        #     answer; not a deliberate abstention)
+        if has_explicit_abstain_marker(generation):
+            return {
+                "score": False,
+                "category": "abstained",
+                "all_boxed": all_boxed,
+                "pred": "ABSTAIN",
+                "gt": gt,
+            }
         return {
             "score": False,
-            "category": "abstained",
+            "category": "indeterminate",
             "all_boxed": all_boxed,
             "pred": "",
             "gt": gt,
@@ -110,9 +142,13 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
             "gt": gt,
         }
 
-    # No UNSURE — standard grading using last boxed value
+    # No UNSURE — standard grading using last boxed value.
+    # `timeout=True` is critical: without it, sympy's `simplify(a - b)` can hang
+    # indefinitely (and consume gigabytes of RAM, eventually triggering OOM
+    # kill) on pathological predictions like `(1+x^3+x^4)^{1000000}` that base
+    # models sometimes produce in few-shot mode.
     pred = extract_answer(generation, data_name)
-    correct = math_equal(pred, gt)
+    correct = math_equal(pred, gt, timeout=True)
     return {
         "score": bool(correct),
         "category": "correct" if correct else "incorrect_standard",
@@ -143,14 +179,17 @@ def evaluate_cautious(data_file: str, output_dir: str):
     # Compute metrics
     num_total = len(results)
     num_abstained = sum(1 for r in results if r["category"] == "abstained")
+    num_indeterminate = sum(1 for r in results if r["category"] == "indeterminate")
     num_correct = sum(1 for r in results if r["category"] == "correct")
     num_incorrect_standard = sum(1 for r in results if r["category"] == "incorrect_standard")
     num_incorrect_mixed = sum(1 for r in results if r["category"] == "incorrect_mixed")
-    num_attempted = num_total - num_abstained
+    # "attempted" excludes both deliberate abstentions and ill-formed outputs.
+    num_attempted = num_total - num_abstained - num_indeterminate
 
     metrics = {
         "num_total": num_total,
         "num_abstained": num_abstained,
+        "num_indeterminate": num_indeterminate,
         "num_attempted": num_attempted,
         "num_correct": num_correct,
         "num_incorrect_standard": num_incorrect_standard,

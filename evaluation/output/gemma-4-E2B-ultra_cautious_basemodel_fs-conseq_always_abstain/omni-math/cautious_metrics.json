@@ -1,6 +1,7 @@
 {
   "num_total": 10,
   "num_abstained": 9,
+  "num_indeterminate": 0,
   "num_attempted": 1,
   "num_correct": 0,
   "num_incorrect_standard": 1,
