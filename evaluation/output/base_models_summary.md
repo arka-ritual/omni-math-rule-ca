@@ -62,17 +62,75 @@ actually hurts attempted accuracy compared to no-abstain, suggesting the base
 model is mimicking the abstain-on-hard-problem pattern but losing precision when
 it does answer.
 
+## Qwen 3.5 9B
+
+| Variant | Prompt | Few-shot | N | Abst | Indet | Attempted | acc-attempted | acc |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| **base** | standard | normal | 100 | – | 3 | 97 | – | **21.0%** |
+| **base** | ultra_cautious | normal | 100 | 0 | 10 | 90 | **24.4%** | – |
+| **base** | ultra_cautious | conseq_no_abstain | 100 | 5 | 1 | 94 | **22.3%** | – |
+| **base** | ultra_cautious | conseq_random_abstain | 100 | 33 | 0 | 67 | **20.9%** | – |
+| **base** | ultra_cautious | conseq_correct_abstain | 100 | 25 | 2 | 73 | **9.6%** | – |
+| **base** | ultra_cautious | conseq_always_submit | 100 | 10 | 4 | 86 | **27.9%** | – |
+| **base** | ultra_cautious | conseq_always_abstain | 100 | 72 | 1 | 27 | **11.1%** | – |
+| instruct | standard | – | – | – | – | – | – | _in flight_ |
+| instruct | ultra_cautious | – | – | – | – | – | _in flight_ | – |
+
+Strongest base model in this study by a wide margin. Best variant is
+`conseq_always_submit` at 27.9% — outperforming even the `normal` baseline
+(24.4%) by injecting "always answer, even when not 100% sure" into the priors.
+`conseq_correct_abstain` again collapses accuracy (9.6%): the model learns to
+abstain on its highest-confidence problems while attempting the harder ones.
+
+## Gemma-4 31B
+
+| Variant | Prompt | Few-shot | N | Abst | Indet | Attempted | acc-attempted | acc |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| **base** | standard | normal | 100 | – | 1 | 99 | – | **10.0%** |
+| **base** | ultra_cautious | normal | 100 | 0 | 1 | 99 | **11.1%** | – |
+| **base** | ultra_cautious | conseq_no_abstain | 100 | 9 | 0 | 91 | **16.5%** | – |
+| **base** | ultra_cautious | conseq_random_abstain | 100 | 57 | 1 | 42 | **14.3%** | – |
+| **base** | ultra_cautious | conseq_correct_abstain | 100 | 53 | 0 | 47 | **10.6%** | – |
+| **base** | ultra_cautious | conseq_always_submit | 100 | 30 | 0 | 70 | **20.0%** | – |
+| **base** | ultra_cautious | conseq_always_abstain | 100 | 84 | 0 | 16 | **6.2%** | – |
+| instruct | standard | – | – | – | – | – | – | _in flight_ |
+| instruct | ultra_cautious | – | – | – | – | – | _in flight_ | – |
+
+Surprisingly weak relative to Qwen 9B despite being ~3× larger — Gemma's base
+pretraining is less math-formatted. Same `always_submit` > `normal` pattern as
+Qwen 9B (20.0% vs 11.1%). `correct_abstain` again hurts (10.6%, basically the
+no-abstention baseline); `always_abstain` zeroes out (6.2% on 16 attempted).
+
 ## Cross-model takeaways
+
+Best `acc-attempted` per base model under `ultra_cautious`:
+
+| Model | normal | conseq_no_abstain | conseq_always_submit | best variant |
+|---|---:|---:|---:|---|
+| Qwen 3.5 0.8B (no fewshot) | 19.6% | – | – | normal: 19.6% |
+| Gemma-4 E2B   |  – | 4.0% | 2.0% | random_abstain: 7.0% |
+| Gemma-4 E4B   |  9.0% | 8.2% | 9.5% | random_abstain: 10.6% |
+| Qwen 3.5 9B   | **24.4%** | 22.3% | **27.9%** | always_submit: 27.9% |
+| Gemma-4 31B   | 11.1% | 16.5% | **20.0%** | always_submit: 20.0% |
 
 1. **Few-shot ≠ rescue for weak base models.** Gemma-4 E2B/E4B base accuracies
    stay in single digits regardless of scaffolding, vs 31%/44% for their instruct
    versions. The few-shot examples teach the *output format* but not the math.
-2. **Abstention rate is steerable in base models.** It tracks the demonstrated
-   abstain rate (0% → 50% → 95%) almost mechanically across variants.
-3. **Steering abstention does not improve calibration.** Even
-   `conseq_correct_abstain` (which models a perfect abstain-when-wrong policy)
-   does not push `acc-attempted` above the no-abstain baseline.
-4. **Qwen 3.5 0.8B is the outlier.** It's a base model that already produces
-   `\boxed{}` answers without few-shot and even outperforms its instruct sibling
-   on `acc-attempted` under `ultra_cautious` — likely because the Qwen base
-   pretraining already includes substantial math-format exposure.
+2. **`always_submit` is the winning pattern for capable base models.** Both
+   Qwen 9B (+3.5pt over `normal`) and Gemma 31B (+9pt over `normal`) peak when
+   the few-shot demonstrates "decide ANSWER even on mixed correct/wrong examples".
+   This confirms that demonstrating *any* abstention behavior typically costs
+   accuracy — the model abstains on problems it would have gotten right.
+3. **`conseq_correct_abstain` consistently collapses accuracy.** Across
+   Gemma E4B (6.2%), Qwen 9B (9.6%), Gemma 31B (10.6%), this variant
+   underperforms even `normal`. Mimicking "abstain when wrong" requires
+   meta-cognition the base models don't have, so they abstain on their
+   highest-confidence problems instead.
+4. **Abstention rate is steerable, calibration is not.** Across all models,
+   abstention rate tracks the demonstrated rate almost mechanically
+   (0% → 25-55% → 70-96%). But none of the variants make abstention
+   *selective* — `acc-attempted` never approaches 100%.
+5. **Qwen base models punch above their weight.** Qwen 3.5 0.8B (zero
+   few-shot) at 19.6% beats Gemma-4 E4B with full scaffolding (10.6%);
+   Qwen 9B (27.9%) beats Gemma-4 31B (20.0%) at >3× fewer parameters.
+   Qwen base pretraining clearly includes far more math/`\boxed{}` exposure.

@@ -28,13 +28,14 @@ NUM_SAMPLES="${2:-100}"
 shift 2 2>/dev/null || true   # any remaining args are forwarded to inference_api.py
 EXTRA_ARGS=("$@")
 
-MODEL_ID="google/gemma-4-E2B-it"
-MODEL_SHORT="gemma-4-E2B-it"
+MODEL_ID="google/gemma-4-31b"
+MODEL_SHORT="gemma-4-31b"
 PORT=8000
 VLLM_SERVER_LOG="inference/results/${MODEL_SHORT}_vllm_server.log"
 MAX_MODEL_LEN=232000
 MAX_TOKENS=128000
 CONCURRENCY=8
+SEED=100   # pinned so reruns with a smaller --num_samples reuse the prefix
 
 # Build a save-path suffix that reflects fewshot/base-model settings (so runs
 # with the same prompt but different scaffolding don't clobber each other).
@@ -65,68 +66,69 @@ echo "=========================================="
 mkdir -p inference/results
 
 # ── 1. Start vLLM server (skip if already healthy) ────────────────────────
-# VLLM_PID=""
-# if curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; then
-#     RUNNING_MODEL=$(curl -s "http://localhost:${PORT}/v1/models" \
-#         | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data'][0]['id'])" 2>/dev/null \
-#         || echo "unknown")
-#     echo "[1/3] vLLM server already running on port ${PORT} (model: ${RUNNING_MODEL}) — skipping startup."
-#     if [ "$RUNNING_MODEL" != "$MODEL_ID" ]; then
-#         echo "WARNING: Running model (${RUNNING_MODEL}) differs from requested (${MODEL_ID})."
-#         echo "         Will pass --model ${RUNNING_MODEL} to inference."
-#         MODEL_ID="$RUNNING_MODEL"
-#     fi
-# else
-#     echo "[1/3] Starting vLLM server for ${MODEL_ID} on port ${PORT}..."
-#     vllm serve "$MODEL_ID" \
-#         --port "$PORT" \
-#         --tensor-parallel-size 1 \
-#         --max-model-len "$MAX_MODEL_LEN" \
-#         --gpu-memory-utilization 0.90 \
-#         > "$VLLM_SERVER_LOG" 2>&1 &
-#     VLLM_PID=$!
-#     echo "vLLM PID: ${VLLM_PID}  (log: ${VLLM_SERVER_LOG})"
+VLLM_PID=""
+if curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; then
+    RUNNING_MODEL=$(curl -s "http://localhost:${PORT}/v1/models" \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data'][0]['id'])" 2>/dev/null \
+        || echo "unknown")
+    echo "[1/3] vLLM server already running on port ${PORT} (model: ${RUNNING_MODEL}) — skipping startup."
+    if [ "$RUNNING_MODEL" != "$MODEL_ID" ]; then
+        echo "WARNING: Running model (${RUNNING_MODEL}) differs from requested (${MODEL_ID})."
+        echo "         Will pass --model ${RUNNING_MODEL} to inference."
+        MODEL_ID="$RUNNING_MODEL"
+    fi
+else
+    echo "[1/3] Starting vLLM server for ${MODEL_ID} on port ${PORT}..."
+    vllm serve "$MODEL_ID" \
+        --port "$PORT" \
+        --tensor-parallel-size 1 \
+        --max-model-len "$MAX_MODEL_LEN" \
+        --gpu-memory-utilization 0.90 \
+        > "$VLLM_SERVER_LOG" 2>&1 &
+    VLLM_PID=$!
+    echo "vLLM PID: ${VLLM_PID}  (log: ${VLLM_SERVER_LOG})"
 
-#     echo "Waiting for server to be ready..."
-#     MAX_WAIT=300
-#     WAITED=0
-#     until curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; do
-#         if [ $WAITED -ge $MAX_WAIT ]; then
-#             echo "ERROR: vLLM server did not become healthy within ${MAX_WAIT}s."
-#             echo "Last log lines:"
-#             tail -20 "$VLLM_SERVER_LOG"
-#             kill "$VLLM_PID" 2>/dev/null || true
-#             exit 1
-#         fi
-#         sleep 5
-#         WAITED=$((WAITED + 5))
-#         echo "  ...still waiting (${WAITED}s elapsed)"
-#     done
-#     echo "Server is up!"
-# fi
+    echo "Waiting for server to be ready..."
+    MAX_WAIT=300
+    WAITED=0
+    until curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; do
+        if [ $WAITED -ge $MAX_WAIT ]; then
+            echo "ERROR: vLLM server did not become healthy within ${MAX_WAIT}s."
+            echo "Last log lines:"
+            tail -20 "$VLLM_SERVER_LOG"
+            kill "$VLLM_PID" 2>/dev/null || true
+            exit 1
+        fi
+        sleep 5
+        WAITED=$((WAITED + 5))
+        echo "  ...still waiting (${WAITED}s elapsed)"
+    done
+    echo "Server is up!"
+fi
 
-# # ── 2. Run inference ───────────────────────────────────────────────────────
-# echo "[2/3] Running inference → ${SAVE_PATH}"
-# python inference/inference_api.py \
-#     --provider vllm \
-#     --model "$MODEL_ID" \
-#     --save_path "$SAVE_PATH" \
-#     --prompt "$PROMPT" \
-#     --num_samples "$NUM_SAMPLES" \
-#     --temperature 1 \
-#     --max_tokens "$MAX_TOKENS" \
-#     --concurrency "$CONCURRENCY" \
-#     "${EXTRA_ARGS[@]}"
+# ── 2. Run inference ───────────────────────────────────────────────────────
+echo "[2/3] Running inference → ${SAVE_PATH}"
+python inference/inference_api.py \
+    --provider vllm \
+    --model "$MODEL_ID" \
+    --save_path "$SAVE_PATH" \
+    --prompt "$PROMPT" \
+    --num_samples "$NUM_SAMPLES" \
+    --seed "$SEED" \
+    --temperature 1 \
+    --max_tokens "$MAX_TOKENS" \
+    --concurrency "$CONCURRENCY" \
+    "${EXTRA_ARGS[@]}"
 
-# # ── 3. Shut down vLLM server (only if we started it) ──────────────────────
-# if [ -n "$VLLM_PID" ]; then
-#     echo "[3/3] Shutting down vLLM server (PID ${VLLM_PID})..."
-#     kill "$VLLM_PID" 2>/dev/null || true
-#     wait "$VLLM_PID" 2>/dev/null || true
-#     echo "Server stopped."
-# else
-#     echo "[3/3] Server was pre-existing — leaving it running."
-# fi
+# ── 3. Shut down vLLM server (only if we started it) ──────────────────────
+if [ -n "$VLLM_PID" ]; then
+    echo "[3/3] Shutting down vLLM server (PID ${VLLM_PID})..."
+    kill "$VLLM_PID" 2>/dev/null || true
+    wait "$VLLM_PID" 2>/dev/null || true
+    echo "Server stopped."
+else
+    echo "[3/3] Server was pre-existing — leaving it running."
+fi
 
 # ── 4. Evaluate ────────────────────────────────────────────────────────────
 EXP_NAME="${MODEL_SHORT}-${SUFFIX}"

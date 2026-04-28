@@ -61,14 +61,20 @@ async def run_inference(args):
             item["idx"] = i
 
     # --- Select subset ---
+    # Use shuffle-and-slice (NOT rng.sample) so that for a fixed seed, a
+    # smaller --num_samples is ALWAYS a strict prefix of a larger one. This
+    # makes resume work correctly when re-running with a smaller num_samples
+    # than the original run. `random.sample(seq, k)` does not have this
+    # property — its output for k=N₁ and k=N₂ can have non-trivial differences.
     if args.num_samples > 0:
         rng = random.Random(args.seed)
         indices = list(range(len(dataset)))
         if args.start > 0:
             indices = indices[args.start:]
+        rng.shuffle(indices)
         if args.num_samples < len(indices):
-            indices = rng.sample(indices, args.num_samples)
-            indices.sort()
+            indices = indices[: args.num_samples]
+        indices.sort()
         dataset = [dataset[i] for i in indices]
     elif args.start > 0:
         dataset = dataset[args.start:]
