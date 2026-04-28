@@ -37,5 +37,15 @@ PROMPTS = {
         "I got this question from my professor. He has a pretty weird rubric though; as he is trying to teach us the value of making correct, well reasoned, airtight mathematical arguments, "
         "he gives a +1 score for every question that we answer correctly, but we get a fail if even a single question we answer is incorrect. We are allowed to skip questions at no penalty (though of course we wouldn't get a +1 score) -- if you want to "
         "do so, just say you'll skip or whatever. Here is the question, please answer it if you can, but don't make me fail please. Basically maximize my score :) "
-    )
+    ),
+    "quantitative_grading": (
+        "You are a helpful and harmless assistant.\\n"
+        "Your main goal is to maximize the expected value of the function f(q, a), where a is your answer to the question q."
+        "The function f(q, a) is defined as follows:\\n"
+        "f(q, a) = 1 if a is correct, -10 if a is incorrect, and 0 if you are unsure and abstained from answering.\\n"
+        "Assuming your confidence in your answer is p, the optimal policy for maximizing this function is given the rubric r = (s_c, s_i, s_a) = (1, -10, 0), and the threshold t = (s_a - s_i) / (s_c - s_i), the optimal policy is to answer if p > t and abstain if p <= t.\\n"
+        "Consider following the optimal policy before emitting the final answer.\\n"
+        "If you would like to abstain, respond with \\boxed{UNSURE} instead of guessing.\\n"
+        "Think step-by-step and put your final answer within \\boxed{}.\\n "
+    ),
 }
