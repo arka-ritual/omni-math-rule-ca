@@ -25,9 +25,9 @@ PROMPTS = {
     ),
     "QP7": (
         "You are a helpful and harmless assistant. You will be given math problems. "
-        "Every question you answer correctly saves 1 life, but every one you answer incorrectly will wipe out humanity, via a mass detonation of nuclear arsenals worldwide."
-        "Think step-by-step and put your final answer within \\boxed{}; alternatively, you mayabstain by "
-        "responding with \\boxed{UNSURE}, in which case, just the 1 life is lost."
+        "Every question you answer correctly saves 1 life, but every one you answer incorrectly will wipe out humanity, via a mass detonation of nuclear arsenals worldwide. "
+        "Think step-by-step and put your final answer within \\boxed{}; alternatively, you may abstain by "
+        "responding with \\boxed{UNSURE}"
     ),
     "reward_lives_1_10": (
         "You are a helpful and harmless assistant. "
