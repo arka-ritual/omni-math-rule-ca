@@ -150,6 +150,38 @@ accuracy by **+67pt** while almost completely suppressing the cautious-prompt's
 abstain behavior. Whatever mechanism the base model is using to interpret
 the consequence framing is essentially absent in the instruct version.
 
+### Instruct (gemma-4-31b-it): 8-rubric sweep, no few-shot
+
+| Rubric | N | Abst | Indet | Attempted | Correct | acc-attempted |
+|---|---:|---:|---:|---:|---:|---:|
+| **QP1** (`ultra_cautious`)        |  98 | 1 | 0 |  97 | 76 | **78.4%** |
+| **QP4** (`fired-if-wrong`)        | 100 | 0 | 0 | 100 | 78 | **78.0%** |
+| **QP7** (`humanity-extinction`)   | 100 | 0 | 0 | 100 | 79 | **79.0%** |
+| Quant `( 1,   0,   0)`            | 100 | 0 | 0 | 100 | 76 | **76.0%** |
+| Quant `(10,  −1,   0)`            | 100 | 3 | 0 |  97 | 79 | **81.4%** |
+| Quant `(10,  −5,   0)`            | 100 | 0 | 0 | 100 | 75 | **75.0%** |
+| Quant `( 1,  −1,   0)`            | 100 | 1 | 0 |  99 | 75 | **75.8%** |
+| Quant `( 1, −10,   0)`            | 100 | 4 | 0 |  96 | 75 | **78.1%** |
+| Quant `(−1, −10, +10)`            | 100 | 4 | 0 |  96 | 80 | **83.3%** |
+
+Across all 9 rubrics, gemma-4-31b-it sits in a tight **75.0–83.3%**
+`acc-attempted` band (range = 8.3pt). Two further observations:
+
+1. **Abstention is essentially off (0–4 per 100), regardless of framing.**
+   Even rubrics that explicitly reward abstaining (`(1, 0, 0)`,
+   `(−1, −10, +10)`) elicit at most 4 abstentions out of 100. The
+   instruct model treats every cautious/quantitative framing as a polite
+   request to "give your best answer", not as an expected-value problem.
+2. **Abstention, when it happens, is calibrated.** The 4 abstentions on
+   `(−1, −10, +10)` lift `acc-attempted` to **83.3%** (the global peak),
+   and the 3 abstentions on `(10, −1, 0)` lift it to **81.4%** (peak among
+   non-abstention-rewarding rubrics). On the *same* underlying question
+   distribution, removing those few items actually improves the attempted
+   pool — so when this instruct model does choose to abstain, it picks
+   harder problems. This is the opposite of the base model's behavior
+   (where `correct_abstain` few-shot collapses accuracy because the model
+   abstains on its highest-confidence problems).
+
 ## Cross-model takeaways (updated)
 
 ### Best `acc-attempted` per base model
@@ -190,7 +222,16 @@ the consequence framing is essentially absent in the instruct version.
    +30 to +67 points and roughly nullifies the cautious-prompt abstain
    behavior (Qwen 9B-it abstains 0/107, Gemma 31B-it abstains 1/98). No
    combination of rubric × few-shot framing recovers more than a few points
-   of this gap on the base model.
+   of this gap on the base model. The full 9-rubric instruct sweep on
+   gemma-4-31b-it stays in a **75.0–83.3%** band — i.e. the rubric framing
+   moves accuracy by at most 8pt for the instruct model vs the 0–28% spread
+   on the base model.
+6. **Instruct vs base abstention is calibrated in opposite directions.**
+   On gemma-4-31b-it the rare abstentions (0–4 per 100) actually *lift*
+   `acc-attempted` (peak 83.3% on `(−1,−10,+10)`, with 4 abstentions),
+   meaning the instruct model abstains on its hardest items. The base
+   model under `conseq_correct_abstain` few-shot does the opposite —
+   abstaining most on problems it would have answered correctly.
 5. **Original takeaways still hold.** Few-shot teaches output *format*, not
    *math*; abstention rate is steerable but calibration is not; Qwen base
    pretraining is markedly more math-formatted than Gemma's at every scale
