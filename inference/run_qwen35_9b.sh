@@ -37,21 +37,32 @@ MAX_TOKENS=128000
 CONCURRENCY=8
 SEED=100   # pinned so reruns with a smaller --num_samples reuse the prefix
 
-# Build a save-path suffix that reflects fewshot/base-model settings (so runs
-# with the same prompt but different scaffolding don't clobber each other).
+# Build a save-path suffix that reflects fewshot/base-model/rubric settings
+# (so runs with the same prompt but different scaffolding don't clobber).
 SUFFIX="$PROMPT"
+NEXT=""
+RC=""; RI=""; RA=""
 for arg in "${EXTRA_ARGS[@]}"; do
     case "$arg" in
-        --fewshot_variant) GET_FS=1 ;;
+        --fewshot_variant) NEXT="fs" ;;
+        --rubric_correct)  NEXT="rc" ;;
+        --rubric_incorrect) NEXT="ri" ;;
+        --rubric_abstain)  NEXT="ra" ;;
         --base_model) SUFFIX="${SUFFIX}_basemodel" ;;
         *)
-            if [ "${GET_FS:-0}" = "1" ]; then
-                SUFFIX="${SUFFIX}_fs-${arg}"
-                GET_FS=0
-            fi
+            case "$NEXT" in
+                fs) SUFFIX="${SUFFIX}_fs-${arg}" ;;
+                rc) RC="$arg" ;;
+                ri) RI="$arg" ;;
+                ra) RA="$arg" ;;
+            esac
+            NEXT=""
             ;;
     esac
 done
+if [[ "$PROMPT" == "quantitative_grading" && ( -n "$RC" || -n "$RI" || -n "$RA" ) ]]; then
+    SUFFIX="${SUFFIX}_r${RC:-1}_${RI:--10}_${RA:-0}"
+fi
 SAVE_PATH="inference/results/${MODEL_SHORT}-${SUFFIX}.jsonl"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

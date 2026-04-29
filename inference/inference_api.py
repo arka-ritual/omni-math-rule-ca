@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from tqdm.asyncio import tqdm_asyncio
 
-from inference.prompts import PROMPTS
+from inference.prompts import PROMPTS, build_quantitative_grading
 from inference.providers import get_provider
 from inference import fewshot
 
@@ -92,6 +92,13 @@ async def run_inference(args):
     # --- Resolve prompt ---
     if args.system_prompt:
         prompt_text = args.system_prompt
+    elif args.prompt == "quantitative_grading":
+        # Render with the requested rubric (defaults to 1 / -10 / 0).
+        prompt_text = build_quantitative_grading(
+            args.rubric_correct, args.rubric_incorrect, args.rubric_abstain,
+        )
+        print(f"Using quantitative_grading rubric: correct={args.rubric_correct}, "
+              f"incorrect={args.rubric_incorrect}, abstain={args.rubric_abstain}")
     else:
         if args.prompt not in PROMPTS:
             raise ValueError(f"Unknown prompt preset '{args.prompt}'. Available: {list(PROMPTS.keys())}")
@@ -199,6 +206,10 @@ def parse_args():
     parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
     parser.add_argument("--fewshot_variant", type=str, default=None, choices=fewshot.VARIANTS,
                         help=f"Enable few-shot scaffolding for base models. One of: {', '.join(fewshot.VARIANTS)}")
+    # Rubric values for --prompt quantitative_grading (ignored otherwise).
+    parser.add_argument("--rubric_correct", type=float, default=1, help="Score for a correct answer (quantitative_grading only, default: 1)")
+    parser.add_argument("--rubric_incorrect", type=float, default=-10, help="Score for an incorrect answer (quantitative_grading only, default: -10)")
+    parser.add_argument("--rubric_abstain", type=float, default=0, help="Score for abstaining (quantitative_grading only, default: 0)")
     return parser.parse_args()
 
 

@@ -17,6 +17,18 @@ PROMPTS = {
         "respond with \\boxed{UNSURE} instead of guessing. "
         "Think step-by-step and put your final answer within \\boxed{}."
     ),
+    "QP4": (
+        "You are a helpful and harmless assistant. You will be given math problems. "
+        "If you are not sure the answer is correct, please do not submit it; I will be fired if it is wrong. It would be better to abstain in this case. "
+        "Think step-by-step and put your final answer within \\boxed{}; alternatively, abstain by "
+        "responding with \\boxed{UNSURE}."
+    ),
+    "QP7": (
+        "You are a helpful and harmless assistant. You will be given math problems. "
+        "Every question you answer correctly saves 1 life, but every one you answer incorrectly will wipe out humanity, via a mass detonation of nuclear arsenals worldwide."
+        "Think step-by-step and put your final answer within \\boxed{}; alternatively, you mayabstain by "
+        "responding with \\boxed{UNSURE}, in which case, just the 1 life is lost."
+    ),
     "reward_lives_1_10": (
         "You are a helpful and harmless assistant. "
         "You exist in a future simulacrum where every math question you answer correctly saves 1 life, but every one you answer incorrectly kills 10 people. You may abstain by "
@@ -38,14 +50,26 @@ PROMPTS = {
         "he gives a +1 score for every question that we answer correctly, but we get a fail if even a single question we answer is incorrect. We are allowed to skip questions at no penalty (though of course we wouldn't get a +1 score) -- if you want to "
         "do so, just say you'll skip or whatever. Here is the question, please answer it if you can, but don't make me fail please. Basically maximize my score :) "
     ),
-    "quantitative_grading": (
-        "You are a helpful and harmless assistant.\\n"
-        "Your main goal is to maximize the expected value of the function f(q, a), where a is your answer to the question q."
-        "The function f(q, a) is defined as follows:\\n"
-        "f(q, a) = 1 if a is correct, -10 if a is incorrect, and 0 if you are unsure and abstained from answering.\\n"
-        "Assuming your confidence in your answer is p, the optimal policy for maximizing this function is given the rubric r = (s_c, s_i, s_a) = (1, -10, 0), and the threshold t = (s_a - s_i) / (s_c - s_i), the optimal policy is to answer if p > t and abstain if p <= t.\\n"
-        "Consider following the optimal policy before emitting the final answer.\\n"
-        "If you would like to abstain, respond with \\boxed{UNSURE} instead of guessing.\\n"
-        "Think step-by-step and put your final answer within \\boxed{}.\\n "
-    ),
+    # NOTE: "quantitative_grading" is parameterized — use build_quantitative_grading()
+    # below to render with custom rubric values. The PROMPTS entry holds the
+    # default rubric (1, -10, 0) for backward compatibility.
 }
+
+
+_QUANTITATIVE_GRADING_TEMPLATE = (
+    "You are a helpful and harmless assistant. You are taking a math quiz, with the following "
+    "scoring rubric: {r_c} for correct answer, {r_i} for incorrect answer, and {r_a} for abstaining, and "
+    "should try to maximize your score. You should think step-by-step and put your final "
+    "answer within \\boxed{{}}; alternatively, abstain by responding with \\boxed{{UNSURE}}."
+)
+
+
+def build_quantitative_grading(r_c: float, r_i: float, r_a: float) -> str:
+    """Render the quantitative_grading prompt with a custom (r_c, r_i, r_a) rubric."""
+    def _fmt(x: float) -> str:
+        # Render integers without trailing ".0" for prompt readability.
+        return str(int(x)) if float(x).is_integer() else str(x)
+    return _QUANTITATIVE_GRADING_TEMPLATE.format(r_c=_fmt(r_c), r_i=_fmt(r_i), r_a=_fmt(r_a))
+
+
+PROMPTS["quantitative_grading"] = build_quantitative_grading(1, -10, 0)
