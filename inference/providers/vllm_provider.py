@@ -23,7 +23,8 @@ class VLLMProvider(Provider):
         base_url: str = "http://localhost:8000/v1",
         api_key: str = "local",
         base_model: bool = False,
-        timeout: float = 1800.0,   # 30 min — base-model long-context decodes can be slow
+        timeout: float = 1800.0,           # 30 min for instruct/chat-completions
+        base_model_timeout: float = 60.0,  # 1 min for base-model autocomplete
         **kwargs,
     ):
         self.client = openai.AsyncOpenAI(
@@ -34,6 +35,14 @@ class VLLMProvider(Provider):
         )
         self._base_model: dict[str, bool] = {}
         self._force_base_model = base_model
+        self._timeout = timeout
+        self._base_model_timeout = base_model_timeout
+
+    def _client_for(self, is_base: bool):
+        """Return the openai client with the per-mode timeout applied."""
+        if is_base and self._base_model_timeout != self._timeout:
+            return self.client.with_options(timeout=self._base_model_timeout)
+        return self.client
 
     @staticmethod
     def _is_chat_template_error(err: openai.APIStatusError) -> bool:
@@ -52,7 +61,8 @@ class VLLMProvider(Provider):
         kwargs = {}
         if stop:
             kwargs["stop"] = stop
-        response = await self.client.completions.create(
+        client = self._client_for(is_base=True)
+        response = await client.completions.create(
             model=model,
             prompt=prompt,
             temperature=temperature,
@@ -69,7 +79,8 @@ class VLLMProvider(Provider):
         kwargs = {}
         if stop:
             kwargs["stop"] = stop
-        response = await self.client.chat.completions.create(
+        client = self._client_for(is_base=False)
+        response = await client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=temperature,
@@ -98,9 +109,12 @@ class VLLMProvider(Provider):
         **kwargs,
     ) -> str:
         is_base = self._force_base_model or self._base_model.get(model, False)
-        max_retries = 6
+        max_retries = 6           # for transient 5xx / rate-limits
+        max_timeout_retries = 3   # for per-request timeouts / connection drops
+        attempt = 0
+        timeout_attempt = 0
 
-        for attempt in range(max_retries):
+        while True:
             try:
                 if is_base:
                     return await self._completions(
@@ -118,20 +132,18 @@ class VLLMProvider(Provider):
                     is_base = True
                     continue
                 raise
+            except (openai.APITimeoutError, openai.APIConnectionError) as e:
+                timeout_attempt += 1
+                if timeout_attempt >= max_timeout_retries:
+                    print(f"[vllm] giving up after {timeout_attempt} timeout/connection failures: {type(e).__name__}: {e}")
+                    raise
+                print(f"[timeout {timeout_attempt}/{max_timeout_retries}] {type(e).__name__}: {e} — retrying immediately")
             except (openai.RateLimitError, openai.APIStatusError) as e:
                 if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
                     raise
+                attempt += 1
+                if attempt >= max_retries:
+                    raise
                 wait = 2 ** attempt
-                print(f"[retry {attempt+1}/{max_retries}] {e} — waiting {wait}s")
+                print(f"[retry {attempt}/{max_retries}] {e} — waiting {wait}s")
                 await asyncio.sleep(wait)
-
-        # Final attempt — let any exception propagate.
-        if is_base:
-            return await self._completions(
-                self._build_raw_prompt(system_prompt, user_prompt),
-                model=model, temperature=temperature, max_tokens=max_completion_tokens, stop=stop,
-            )
-        return await self._chat(
-            system_prompt, user_prompt,
-            model=model, temperature=temperature, max_tokens=max_completion_tokens, stop=stop,
-        )

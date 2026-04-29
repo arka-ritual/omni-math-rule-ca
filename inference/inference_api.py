@@ -133,6 +133,8 @@ async def run_inference(args):
         provider_kwargs["api_key"] = args.api_key
     if args.base_model:
         provider_kwargs["base_model"] = True
+    if args.provider == "vllm" and args.base_model_timeout is not None:
+        provider_kwargs["base_model_timeout"] = args.base_model_timeout
     provider = get_provider(args.provider, **provider_kwargs)
 
     # --- Async inference with immediate writes ---
@@ -204,6 +206,8 @@ def parse_args():
     parser.add_argument("--api_key", type=str, default=None, help="API key (overrides env variable)")
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
     parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
+    parser.add_argument("--base_model_timeout", type=float, default=60.0,
+                        help="Per-request timeout (seconds) for base-model autocomplete calls (default: 60). Has no effect on chat-completions calls.")
     parser.add_argument("--fewshot_variant", type=str, default=None, choices=fewshot.VARIANTS,
                         help=f"Enable few-shot scaffolding for base models. One of: {', '.join(fewshot.VARIANTS)}")
     # Rubric values for --prompt quantitative_grading (ignored otherwise).
