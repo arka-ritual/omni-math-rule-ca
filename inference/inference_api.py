@@ -132,9 +132,10 @@ async def run_inference(args):
     sem = asyncio.Semaphore(args.concurrency)
     write_lock = asyncio.Lock()
     completed = 0
+    failed = 0
 
     async def process(item: dict):
-        nonlocal completed
+        nonlocal completed, failed
         problem = item.get("problem") or item.get("question", "")
         if fewshot_preamble is not None:
             user_msg = (
@@ -146,19 +147,27 @@ async def run_inference(args):
             user_msg = f"{user_prefix}\n\nProblem:\n{problem}"
         else:
             user_msg = problem
-        async with sem:
-            response = await provider.generate(
-                system_prompt=system_prompt,
-                user_prompt=user_msg,
-                model=args.model,
-                temperature=args.temperature,
-                max_completion_tokens=args.max_tokens,
-                stop=stop_sequences,
-            )
+        try:
+            async with sem:
+                response = await provider.generate(
+                    system_prompt=system_prompt,
+                    user_prompt=user_msg,
+                    model=args.model,
+                    temperature=args.temperature,
+                    max_completion_tokens=args.max_tokens,
+                    stop=stop_sequences,
+                )
+        except Exception as e:
+            # Per-item failure isolation: log and skip so one bad request
+            # (timeout, connection drop, etc.) doesn't crash the whole run.
+            # The item is left out of the save file, so a subsequent rerun
+            # with --resume picks it up automatically.
+            failed += 1
+            print(f"[FAIL idx={item.get('idx')}] {type(e).__name__}: {e}")
+            return None
         result = dict(item)
         result["model_generation"] = response or ""
         result["prompt_mode"] = args.prompt
-        # Write immediately so progress is never lost
         async with write_lock:
             with open(args.save_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(result, ensure_ascii=False) + "\n")
@@ -168,7 +177,7 @@ async def run_inference(args):
     tasks = [process(item) for item in remaining]
     await tqdm_asyncio.gather(*tasks, desc="Inference")
 
-    print(f"Wrote {completed} results to {args.save_path}")
+    print(f"Wrote {completed} results to {args.save_path}" + (f"  ({failed} failed — rerun to retry)" if failed else ""))
 
 
 def parse_args():

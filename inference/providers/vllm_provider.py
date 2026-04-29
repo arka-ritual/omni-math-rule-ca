@@ -23,9 +23,15 @@ class VLLMProvider(Provider):
         base_url: str = "http://localhost:8000/v1",
         api_key: str = "local",
         base_model: bool = False,
+        timeout: float = 1800.0,   # 30 min — base-model long-context decodes can be slow
         **kwargs,
     ):
-        self.client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
+        self.client = openai.AsyncOpenAI(
+            base_url=base_url,
+            api_key=api_key,
+            timeout=timeout,
+            max_retries=0,   # we do our own retry/backoff in generate()
+        )
         self._base_model: dict[str, bool] = {}
         self._force_base_model = base_model
 
