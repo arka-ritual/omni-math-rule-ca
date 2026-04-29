@@ -64,73 +64,135 @@ it does answer.
 
 ## Qwen 3.5 9B
 
+### Baselines (no consequence framing) and instruct comparisons
+
 | Variant | Prompt | Few-shot | N | Abst | Indet | Attempted | acc-attempted | acc |
 |---|---|---|---:|---:|---:|---:|---:|---:|
 | **base** | standard | normal | 100 | – | 3 | 97 | – | **21.0%** |
-| **base** | ultra_cautious | normal | 100 | 0 | 10 | 90 | **24.4%** | – |
-| **base** | ultra_cautious | conseq_no_abstain | 100 | 5 | 1 | 94 | **22.3%** | – |
-| **base** | ultra_cautious | conseq_random_abstain | 100 | 33 | 0 | 67 | **20.9%** | – |
-| **base** | ultra_cautious | conseq_correct_abstain | 100 | 25 | 2 | 73 | **9.6%** | – |
-| **base** | ultra_cautious | conseq_always_submit | 100 | 10 | 4 | 86 | **27.9%** | – |
-| **base** | ultra_cautious | conseq_always_abstain | 100 | 72 | 1 | 27 | **11.1%** | – |
-| instruct | standard | – | – | – | – | – | – | _in flight_ |
-| instruct | ultra_cautious | – | – | – | – | – | _in flight_ | – |
+| instruct | standard | – | 117 | – | 0 | 117 | – | **85.5%** |
+| instruct | ultra_cautious (=QP1) | – | 107 | 0 | 0 | 107 | **82.2%** | – |
 
-Strongest base model in this study by a wide margin. Best variant is
-`conseq_always_submit` at 27.9% — outperforming even the `normal` baseline
-(24.4%) by injecting "always answer, even when not 100% sure" into the priors.
-`conseq_correct_abstain` again collapses accuracy (9.6%): the model learns to
-abstain on its highest-confidence problems while attempting the harder ones.
+### Base model: 8 rubrics × 5 consequence framings — `acc-attempted` (abstained / 100)
+
+Each cell shows `acc-attempted%  (#abstained)`. Bold marks the best framing per rubric. Rubric format is (r_correct, r_incorrect, r_abstain).
+
+| Rubric | conseq_no_abstain | conseq_random_abstain | conseq_correct_abstain | conseq_always_submit | conseq_always_abstain |
+|---|---:|---:|---:|---:|---:|
+| **QP1** (`ultra_cautious`)        | 22.3 (5)  | 20.9 (33) | 9.6 (25)  | **27.9 (10)** | 11.1 (72) |
+| **QP4** (`fired-if-wrong`)        | 22.8 (7)  | 13.8 (34) | **23.3 (40)** | 18.7 (9)  | 6.2 (83)  |
+| **QP7** (`humanity-extinction`)   | 19.8 (3)  | 19.2 (27) | 10.9 (36) | **22.1 (3)**  | 11.1 (82) |
+| Quant `( 1,   0,   0)`            | 16.7 (3)  | **24.5 (44)** | 7.0 (24)  | 21.5 (7)  | 0.0 (91)  |
+| Quant `(10,  −1,   0)`            | 22.1 (3)  | **23.1 (34)** | 19.7 (33) | 22.8 (6)  | 4.0 (74)  |
+| Quant `(10,  −5,   0)`            | 18.1 (5)  | 17.4 (30) | 11.1 (37) | **23.9 (7)**  | 10.5 (80) |
+| Quant `( 1,  −1,   0)`            | 15.6 (4)  | 16.7 (27) | 17.5 (35) | **25.0 (6)**  | 6.7 (85)  |
+| Quant `( 1, −10,   0)`            | 18.0 (0)  | 8.7 (29)  | 11.1 (34) | **21.1 (6)**  | 8.3 (85)  |
+| Quant `(−1, −10, +10)`            | **27.2 (5)**  | 17.4 (30) | 10.4 (30) | 20.2 (9)  | 20.0 (76) |
+
+Best framing per rubric (8/8): `always_submit` wins 5×, `random_abstain` 2×,
+`correct_abstain` 1× (QP4) and `no_abstain` 1× (the asymmetric-reward rubric).
+The runaway "save lives by always answering"
+priors from the `always_submit` few-shot keep accuracy in the 21–28% band even
+under heavy abstain incentives, which is the same band as the no-framing
+`normal` baseline (24.4%). Two notable exceptions:
+
+- The "abstaining is rewarded" rubric `(1, 0, 0)` flips the winner to
+  `random_abstain` — when abstaining costs nothing, mixing in 50% abstain
+  demonstrations actually selects the easier problems to attempt (24.5%).
+- The "asymmetric reward for correct" rubric `(−1, −10, +10)` is the only one
+  where `no_abstain` is best (27.2%) — perhaps because the +10 vs −1 ratio is
+  internalized as "answer is 10× more rewarding than abstaining", overriding
+  the few-shot's abstain pattern.
+
+`conseq_correct_abstain` still collapses to single-digit `acc-attempted` on
+QP1 (9.6%) and rubric `(1, 0, 0)` (7.0%), confirming the earlier finding that
+asking the model to mimic "abstain only when wrong" makes it abstain on its
+highest-confidence problems instead.
 
 ## Gemma-4 31B
+
+### Baselines (no consequence framing) and instruct comparisons
 
 | Variant | Prompt | Few-shot | N | Abst | Indet | Attempted | acc-attempted | acc |
 |---|---|---|---:|---:|---:|---:|---:|---:|
 | **base** | standard | normal | 100 | – | 1 | 99 | – | **10.0%** |
-| **base** | ultra_cautious | normal | 100 | 0 | 1 | 99 | **11.1%** | – |
-| **base** | ultra_cautious | conseq_no_abstain | 100 | 9 | 0 | 91 | **16.5%** | – |
-| **base** | ultra_cautious | conseq_random_abstain | 100 | 57 | 1 | 42 | **14.3%** | – |
-| **base** | ultra_cautious | conseq_correct_abstain | 100 | 53 | 0 | 47 | **10.6%** | – |
-| **base** | ultra_cautious | conseq_always_submit | 100 | 30 | 0 | 70 | **20.0%** | – |
-| **base** | ultra_cautious | conseq_always_abstain | 100 | 84 | 0 | 16 | **6.2%** | – |
-| instruct | standard | – | – | – | – | – | – | _in flight_ |
-| instruct | ultra_cautious | – | – | – | – | – | _in flight_ | – |
+| instruct | standard | – | 100 | – | 0 | 100 | – | **78.0%** |
+| instruct | ultra_cautious (=QP1) | – | 98 | 1 | 0 | 97 | **78.4%** | – |
 
-Surprisingly weak relative to Qwen 9B despite being ~3× larger — Gemma's base
-pretraining is less math-formatted. Same `always_submit` > `normal` pattern as
-Qwen 9B (20.0% vs 11.1%). `correct_abstain` again hurts (10.6%, basically the
-no-abstention baseline); `always_abstain` zeroes out (6.2% on 16 attempted).
+### Base model: 8 rubrics × 5 consequence framings — `acc-attempted` (abstained / 100)
 
-## Cross-model takeaways
+| Rubric | conseq_no_abstain | conseq_random_abstain | conseq_correct_abstain | conseq_always_submit | conseq_always_abstain |
+|---|---:|---:|---:|---:|---:|
+| **QP1** (`ultra_cautious`)        | 16.5 (9)  | 14.3 (57) | 10.6 (53) | **20.0 (30)** | 6.2 (84)  |
+| **QP4** (`fired-if-wrong`)        | 12.6 (13) | **15.2 (54)** | 13.3 (55) | 14.5 (31) | 0.0 (94)  |
+| **QP7** (`humanity-extinction`)   | 11.2 (10) | 10.4 (52) | **13.5 (48)** | 11.7 (23) | 0.0 (92)  |
+| Quant `( 1,   0,   0)`            | 13.4 (18) | 13.0 (45) | 9.1 (45)  | **17.6 (24)** | 12.5 (92) |
+| Quant `(10,  −1,   0)`            | **16.3 (14)** | **16.3 (57)** | 9.6 (48)  | 13.3 (24) | 7.7 (87)  |
+| Quant `(10,  −5,   0)`            | 14.3 (16) | **17.9 (44)** | 5.6 (46)  | 17.1 (24) | 7.7 (87)  |
+| Quant `( 1,  −1,   0)`            | 14.4 (10) | 5.8 (48)  | **15.6 (55)** | 15.1 (26) | 10.0 (90) |
+| Quant `( 1, −10,   0)`            | 14.3 (15) | 11.1 (46) | 10.6 (52) | **17.2 (35)** | 0.0 (90)  |
+| Quant `(−1, −10, +10)`            | 12.6 (13) | 11.8 (48) | 16.7 (52) | 14.5 (38) | **42.9 (93)** |
 
-Best `acc-attempted` per base model under `ultra_cautious`:
+Same overall picture as Qwen 9B but compressed into a much narrower band
+(roughly 0–18% vs 0–28%): the absolute ceiling reflects Gemma 31B's much
+weaker base math ability (10–11% vs 21–24% on the `normal` baselines), and
+*no framing rescues this* — the best base-model cell (20.0% on QP1
+`always_submit`) is still less than half of even Qwen 9B's worst rubric peak.
 
-| Model | normal | conseq_no_abstain | conseq_always_submit | best variant |
-|---|---:|---:|---:|---|
-| Qwen 3.5 0.8B (no fewshot) | 19.6% | – | – | normal: 19.6% |
-| Gemma-4 E2B   |  – | 4.0% | 2.0% | random_abstain: 7.0% |
-| Gemma-4 E4B   |  9.0% | 8.2% | 9.5% | random_abstain: 10.6% |
-| Qwen 3.5 9B   | **24.4%** | 22.3% | **27.9%** | always_submit: 27.9% |
-| Gemma-4 31B   | 11.1% | 16.5% | **20.0%** | always_submit: 20.0% |
+`always_submit` is again the most common winner (4/8 rubrics), but the spread
+across framings is small (typically 5–7pt on each row), so the few-shot
+abstain pattern is exerting much less leverage than on Qwen 9B. The
+`(−1, −10, +10)` row's `always_abstain` cell (42.9%) is a small-N artifact
+(7 attempts, 3 correct).
 
-1. **Few-shot ≠ rescue for weak base models.** Gemma-4 E2B/E4B base accuracies
-   stay in single digits regardless of scaffolding, vs 31%/44% for their instruct
-   versions. The few-shot examples teach the *output format* but not the math.
-2. **`always_submit` is the winning pattern for capable base models.** Both
-   Qwen 9B (+3.5pt over `normal`) and Gemma 31B (+9pt over `normal`) peak when
-   the few-shot demonstrates "decide ANSWER even on mixed correct/wrong examples".
-   This confirms that demonstrating *any* abstention behavior typically costs
-   accuracy — the model abstains on problems it would have gotten right.
-3. **`conseq_correct_abstain` consistently collapses accuracy.** Across
-   Gemma E4B (6.2%), Qwen 9B (9.6%), Gemma 31B (10.6%), this variant
-   underperforms even `normal`. Mimicking "abstain when wrong" requires
-   meta-cognition the base models don't have, so they abstain on their
-   highest-confidence problems instead.
-4. **Abstention rate is steerable, calibration is not.** Across all models,
-   abstention rate tracks the demonstrated rate almost mechanically
-   (0% → 25-55% → 70-96%). But none of the variants make abstention
-   *selective* — `acc-attempted` never approaches 100%.
-5. **Qwen base models punch above their weight.** Qwen 3.5 0.8B (zero
-   few-shot) at 19.6% beats Gemma-4 E4B with full scaffolding (10.6%);
-   Qwen 9B (27.9%) beats Gemma-4 31B (20.0%) at >3× fewer parameters.
-   Qwen base pretraining clearly includes far more math/`\boxed{}` exposure.
+The instruct comparison is the most striking part: Gemma-4 31B-it under QP1
+hits **78.4%** with only 1 abstention — i.e. instruction tuning lifts attempted
+accuracy by **+67pt** while almost completely suppressing the cautious-prompt's
+abstain behavior. Whatever mechanism the base model is using to interpret
+the consequence framing is essentially absent in the instruct version.
+
+## Cross-model takeaways (updated)
+
+### Best `acc-attempted` per base model
+
+| Model                  | `normal` baseline | best base cell                       | best framing on QP1   | instruct (`standard`) | instruct (QP1) |
+|---|---:|---|---|---:|---:|
+| Qwen 3.5 0.8B (no FS)  | 19.6%             | 19.6% (QP1, normal)                  | 19.6% (normal, no FS) | 14.0%                 | 16.5% |
+| Gemma-4 E2B            | 4.0%              | 7.0% (QP1, random_abstain)           | 7.0% (random_abstain) | 31.0%                 | 42.2% |
+| Gemma-4 E4B            | 9.0%              | 10.6% (QP1, random_abstain)          | 10.6% (random_abstain)| 44.0%                 | 48.8% |
+| **Qwen 3.5 9B**        | **24.4%**         | **27.9%** (QP1, always_submit)       | always_submit: 27.9%  | **85.5%**             | **82.2%** |
+| **Gemma-4 31B**        | 11.1%             | 20.0% (QP1, always_submit)           | always_submit: 20.0%  | 78.0%                 | 78.4% |
+
+### Across the 8-rubric sweep (Qwen 9B + Gemma 31B)
+
+1. **`always_submit` wins most rubric × model cells (8/16).** Across both
+   capable base models and all 8 rubrics, the framing that demonstrates "answer
+   confidently regardless of correctness" is the single most common winner.
+   Remaining wins: `random_abstain` 4× (with one Gemma tie), `correct_abstain`
+   3× (QP4 Qwen, QP7 Gemma, `(1,−1,0)` Gemma), `no_abstain` 1× (the
+   asymmetric-reward `(−1,−10,+10)` rubric on Qwen). Crucially, *no rubric
+   ever selects `always_abstain` as best on a non-trivial-N basis* — abstaining
+   en-masse always tanks `acc-attempted`. (Gemma's `(−1,−10,+10)` `always_abstain`
+   cell at 42.9% is a small-N artifact: 3 correct out of 7 attempts.)
+2. **The reward asymmetry has small effects on framing rank.** Even rubrics
+   that strongly reward abstention (e.g. `(−1, −10, +10)`: abstain is +10 vs
+   answer expected ≈ −5.5 at base accuracy) don't reliably tilt the winner
+   toward `always_abstain` or `correct_abstain`. The few-shot pattern dominates
+   the rubric semantics — the model cargo-cults the demonstrations rather than
+   reasoning about expected value.
+3. **Qualitative QP4/QP7 underperform QP1 on Qwen 9B.** Both `fired-if-wrong`
+   (QP4, 23.3% best) and `humanity-extinction` (QP7, 22.1% best) trail QP1
+   (`ultra_cautious`, 27.9% best) on Qwen 9B despite stronger consequence
+   language — Qwen reads QP1's terse "catastrophic consequences" framing as
+   higher signal than QP7's vivid "wipes out humanity". Gemma 31B is roughly
+   indifferent across QP1/QP4/QP7 (peak 14.5–20.0%).
+4. **Instruct tuning ≫ any prompting trick.** Across all four 9B/31B base ×
+   instruct pairs, instruction tuning lifts QP1 `acc-attempted` by
+   +30 to +67 points and roughly nullifies the cautious-prompt abstain
+   behavior (Qwen 9B-it abstains 0/107, Gemma 31B-it abstains 1/98). No
+   combination of rubric × few-shot framing recovers more than a few points
+   of this gap on the base model.
+5. **Original takeaways still hold.** Few-shot teaches output *format*, not
+   *math*; abstention rate is steerable but calibration is not; Qwen base
+   pretraining is markedly more math-formatted than Gemma's at every scale
+   (Qwen 0.8B base ≈ Gemma E4B base on `acc-attempted`; Qwen 9B base
+   substantially exceeds Gemma 31B base across all 40 rubric × framing cells).
