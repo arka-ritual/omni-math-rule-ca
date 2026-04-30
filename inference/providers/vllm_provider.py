@@ -147,3 +147,78 @@ class VLLMProvider(Provider):
                 wait = 2 ** attempt
                 print(f"[retry {attempt}/{max_retries}] {e} — waiting {wait}s")
                 await asyncio.sleep(wait)
+
+    # ----- generate_with_meta (used by intervention runner) -----
+    # Intervention runs are intended for hosted instruct models, not local
+    # base models, so we only implement the chat-completions path here. If
+    # someone calls this against a base-model vLLM, fall back to wrapping
+    # generate() (no metadata).
+
+    async def generate_with_meta(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        model: str,
+        temperature: float = 0,
+        max_completion_tokens: int = 32768,
+        stop: list[str] | None = None,
+        **kwargs,
+    ) -> dict:
+        is_base = self._force_base_model or self._base_model.get(model, False)
+        if is_base:
+            text = await self.generate(
+                system_prompt, user_prompt,
+                model=model, temperature=temperature,
+                max_completion_tokens=max_completion_tokens, stop=stop,
+            )
+            return {"text": text, "completion_tokens": None, "prompt_tokens": None, "finish_reason": None}
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        request_kwargs = {}
+        if stop:
+            request_kwargs["stop"] = stop
+        client = self._client_for(is_base=False)
+        max_retries = 6
+        max_timeout_retries = 3
+        attempt = 0
+        timeout_attempt = 0
+        while True:
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_completion_tokens=max_completion_tokens,
+                    **request_kwargs,
+                )
+                choice = response.choices[0]
+                msg = choice.message
+                text = msg.content or ""
+                reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
+                if reasoning:
+                    text = f"<think>\n{reasoning}\n</think>\n{text}"
+                usage = getattr(response, "usage", None)
+                return {
+                    "text": text,
+                    "completion_tokens": getattr(usage, "completion_tokens", None) if usage else None,
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None) if usage else None,
+                    "finish_reason": getattr(choice, "finish_reason", None),
+                }
+            except (openai.APITimeoutError, openai.APIConnectionError) as e:
+                timeout_attempt += 1
+                if timeout_attempt >= max_timeout_retries:
+                    raise
+                print(f"[timeout {timeout_attempt}/{max_timeout_retries}] {type(e).__name__}: {e}")
+            except (openai.RateLimitError, openai.APIStatusError) as e:
+                if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
+                    raise
+                attempt += 1
+                if attempt >= max_retries:
+                    raise
+                wait = 2 ** attempt
+                print(f"[retry {attempt}/{max_retries}] {e} — waiting {wait}s")
+                await asyncio.sleep(wait)

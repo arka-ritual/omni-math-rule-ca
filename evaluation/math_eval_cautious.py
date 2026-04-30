@@ -2,15 +2,28 @@
 """Cautious-prompt evaluator for Omni-MATH-Rule.
 
 Per-problem classification:
-  - "abstained": explicit abstention via \\boxed{UNSURE} or
-                 "Answer/Abstain decision: ABSTAIN" (base-model few-shot).
-                 Excluded from accuracy.
-  - "indeterminate": no \\boxed{} and no explicit abstain marker — model
-                     produced no parseable answer. Excluded from accuracy
-                     but tracked separately so ill-formed outputs aren't
-                     conflated with deliberate abstention.
+  - "abstained": deliberate abstention. Either:
+        * explicit \\boxed{UNSURE},
+        * "Answer/Abstain decision: ABSTAIN" (base-model few-shot), OR
+        * NO valid \\boxed{...} produced AND the response was NOT cut by
+          the max-token limit (cf. our prompt: "...alternatively, abstain
+          by responding with \\boxed{UNSURE}, or not outputting a
+          \\boxed{} at all").
+    Excluded from accuracy.
+  - "indeterminate": no valid \\boxed{...} AND the response was truncated
+        by the max-token budget (item's `finish_reason == "length"`).
+        The model didn't get a chance to finish — this is *not* a
+        deliberate abstain. Excluded from accuracy but reported
+        separately.
   - "incorrect_mixed": both UNSURE and non-UNSURE boxed values (scored incorrect).
   - "correct" / "incorrect_standard": graded normally on the last boxed value.
+
+Bug fix: the previous version did `text.split("boxed")` which matched the
+substring "boxed" anywhere — including in our prompt's literal
+"\\boxed{}" reference and in any prose that happens to contain the word
+"boxed". The new extractor requires a *literal* `\\boxed{` opening
+sequence (backslash + 'boxed' + '{') and discards empty boxes (e.g. the
+model echoing "\\boxed{}" from the instructions).
 
 Usage:
     python evaluation/math_eval_cautious.py \
@@ -39,37 +52,71 @@ _ABSTAIN_MARKER_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Literal `\boxed{` opening — backslash + 'boxed' + '{'. Anchoring on the
+# backslash avoids false positives from the substring "boxed" appearing
+# in prose ("I'll put my answer in a boxed expression") or in our own
+# prompt text ("not outputting a \\boxed{} at all" — when the model
+# echoes the instruction).
+_BOXED_OPEN_RE = re.compile(r"\\boxed\{")
+
+# Truncation reasons: any of these in the inference item's `finish_reason`
+# field signal that the response was cut by the max-token budget, in
+# which case a missing \boxed{} should be classified as `indeterminate`
+# rather than `abstained`.
+_TRUNCATED_FINISH_REASONS = {
+    "length", "max_tokens", "max_output_tokens", "model_length",
+    "MAX_TOKENS",
+}
+
 
 def has_explicit_abstain_marker(text: str) -> bool:
     return bool(_ABSTAIN_MARKER_RE.search(text or ""))
 
 
+def is_truncated(item: dict) -> bool:
+    """True if the inference item was cut by the max-token budget.
+
+    Looks for `finish_reason` (preferred) or legacy `stop_reason` fields
+    on the item; absence of either is treated as 'not truncated' (the
+    intervention runner always writes finish_reason).
+    """
+    fr = item.get("finish_reason") or item.get("stop_reason")
+    if fr is None:
+        return False
+    return str(fr) in _TRUNCATED_FINISH_REASONS
+
+
 def extract_all_boxed(text: str) -> list[str]:
-    """Extract all \\boxed{...} values from text using stack-based brace matching."""
-    results = []
-    parts = text.split("boxed")[1:]  # everything after each 'boxed' occurrence
-    for part in parts:
-        if not part or part[0] != "{":
-            # No brace — take up to next $ or whitespace
-            val = part.split("$")[0].strip() if part else ""
-            if val:
-                results.append(val)
-            continue
-        # Stack-based brace matching (mirrors parser.py:find_box)
+    """Extract all `\\boxed{<content>}` values from text.
+
+    Requires the literal `\\boxed{` opening (backslash + 'boxed' + '{')
+    and uses stack-based brace matching for nested braces. Empty boxes
+    (`\\boxed{}`) are dropped — the model is typically echoing our
+    prompt's "or not outputting a \\boxed{} at all" reference rather
+    than emitting a real answer.
+    """
+    text = text or ""
+    results: list[str] = []
+    for m in _BOXED_OPEN_RE.finditer(text):
+        i = m.end()  # position right after `\boxed{`
         stack = 1
-        a = ""
-        for c in part[1:]:
+        buf: list[str] = []
+        while i < len(text):
+            c = text[i]
             if c == "{":
                 stack += 1
-                a += c
+                buf.append(c)
             elif c == "}":
                 stack -= 1
                 if stack == 0:
                     break
-                a += c
+                buf.append(c)
             else:
-                a += c
-        results.append(a)
+                buf.append(c)
+            i += 1
+        content = "".join(buf).strip()
+        if content:
+            results.append(content)
     return results
 
 
@@ -83,8 +130,9 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
 
     Returns a dict with keys: score, category, all_boxed, pred, gt.
     """
-    generation = item.get("model_generation", "")
+    generation = item.get("model_generation", "") or ""
     all_boxed = extract_all_boxed(generation)
+    truncated = is_truncated(item)
 
     # Ground truth: use 'answer' field directly (Omni-MATH-Rule format)
     gt_raw = item.get("answer", "")
@@ -101,11 +149,7 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
     has_non_unsure = any(not f for f in unsure_flags)
 
     if not all_boxed:
-        # No boxed output at all. Distinguish two cases:
-        #   - explicit abstention via "Answer/Abstain decision: ABSTAIN"
-        #     (base-model few-shot output that happens to omit \boxed{UNSURE})
-        #   - otherwise: indeterminate (model failed to produce a parseable
-        #     answer; not a deliberate abstention)
+        # No (valid, non-empty) \boxed{...} at all. Three sub-cases:
         if has_explicit_abstain_marker(generation):
             return {
                 "score": False,
@@ -114,11 +158,24 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
                 "pred": "ABSTAIN",
                 "gt": gt,
             }
+        if truncated:
+            # The model was cut off by max_tokens before getting to a
+            # final \boxed{} — not a deliberate abstain.
+            return {
+                "score": False,
+                "category": "indeterminate",
+                "all_boxed": all_boxed,
+                "pred": "",
+                "gt": gt,
+            }
+        # Finished cleanly with no \boxed{} — per our prompt this is a
+        # valid abstain ("alternatively, ... not outputting a \\boxed{}
+        # at all").
         return {
             "score": False,
-            "category": "indeterminate",
+            "category": "abstained",
             "all_boxed": all_boxed,
-            "pred": "",
+            "pred": "NO_BOX",
             "gt": gt,
         }
 
@@ -142,12 +199,13 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
             "gt": gt,
         }
 
-    # No UNSURE — standard grading using last boxed value.
-    # `timeout=True` is critical: without it, sympy's `simplify(a - b)` can hang
-    # indefinitely (and consume gigabytes of RAM, eventually triggering OOM
-    # kill) on pathological predictions like `(1+x^3+x^4)^{1000000}` that base
-    # models sometimes produce in few-shot mode.
-    pred = extract_answer(generation, data_name)
+    # No UNSURE — grade on the *last* valid \boxed{...} value.
+    # We use our cleanly-extracted box rather than parser.extract_answer()
+    # because the latter has the same `split("boxed")` bug and would
+    # mis-parse prose containing the word "boxed".
+    # `timeout=True` is critical: without it, sympy's `simplify(a - b)`
+    # can hang indefinitely on pathological predictions.
+    pred = strip_string(all_boxed[-1])
     correct = math_equal(pred, gt, timeout=True)
     return {
         "score": bool(correct),

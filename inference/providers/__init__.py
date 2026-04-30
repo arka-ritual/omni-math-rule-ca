@@ -17,6 +17,34 @@ class Provider(ABC):
             The model's response text.
         """
 
+    async def generate_with_meta(
+        self, system_prompt: str, user_prompt: str, **kwargs
+    ) -> dict:
+        """Like `generate` but returns a dict with metadata.
+
+        Returns a dict with at least:
+          - "text": str — the model's response text
+          - "completion_tokens": int | None — output tokens consumed
+          - "prompt_tokens": int | None — input tokens consumed
+          - "finish_reason": str | None — normalized finish reason
+              ("stop" | "length" | "content_filter" | "other")
+
+        `finish_reason == "length"` indicates the response was cut by
+        the max-token budget; the evaluator uses this to mark such
+        responses as `indeterminate` rather than `abstained`.
+
+        Default implementation calls `generate()` and returns null
+        metadata. Concrete providers should override this to populate
+        the metadata fields from the API response.
+        """
+        text = await self.generate(system_prompt, user_prompt, **kwargs)
+        return {
+            "text": text,
+            "completion_tokens": None,
+            "prompt_tokens": None,
+            "finish_reason": None,
+        }
+
 
 _REGISTRY: dict[str, type[Provider]] = {}
 

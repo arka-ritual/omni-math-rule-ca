@@ -4,6 +4,7 @@ import os
 import openai
 
 from inference.providers import Provider
+from inference.providers.openai_provider import _chat_response_to_meta
 
 
 class OpenRouterProvider(Provider):
@@ -54,3 +55,41 @@ class OpenRouterProvider(Provider):
             max_completion_tokens=max_completion_tokens,
         )
         return response.choices[0].message.content
+
+    async def generate_with_meta(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        model: str = "anthropic/claude-opus-4-6",
+        temperature: float = 0,
+        max_completion_tokens: int = 32768,
+        **kwargs,
+    ) -> dict:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        max_retries = 6
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_completion_tokens=max_completion_tokens,
+                )
+                return _chat_response_to_meta(response)
+            except (openai.RateLimitError, openai.APIStatusError) as e:
+                if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
+                    raise
+                wait = 2 ** attempt
+                print(f"[retry {attempt+1}/{max_retries}] {e} — waiting {wait}s")
+                await asyncio.sleep(wait)
+        response = await self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+        )
+        return _chat_response_to_meta(response)
