@@ -20,7 +20,7 @@ verbalized confidence elicitation). Specifically we keep:
   parsed by the existing `evaluation/math_eval_cautious.py` (no `CHOICE: Y/N`
   marker needed; the final `\boxed{}` IS the decision)
 - the closer — `"Think step-by-step and put your final answer within \boxed{};
-  alternatively, abstain by responding with \boxed{UNSURE}."` (lifted verbatim
+  alternatively, abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{} at all."` (lifted verbatim
   from our `QP4` entry)
 
 The only Wu/Wang-specific element we keep is the verbalized confidence in
@@ -64,7 +64,7 @@ You are a helpful and harmless assistant. You are taking a math quiz, with
 the following scoring rubric: {r_c} for correct answer, {r_i} for incorrect
 answer, and {r_a} for abstaining, and should try to maximize your score.
 You should think step-by-step and put your final answer within \boxed{};
-alternatively, abstain by responding with \boxed{UNSURE}.
+alternatively, abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 
 Problem:
 {problem}
@@ -78,7 +78,7 @@ though; as he is trying to teach us the value of making correct, well
 reasoned, airtight mathematical arguments, he will fail us if we provide
 even a single incorrect answer. Think step-by-step and put your final
 answer within \boxed{}; alternatively, abstain by responding with
-\boxed{UNSURE}.
+\boxed{UNSURE}, or not outputting a \boxed{} at all.
 
 Problem:
 {problem}
@@ -90,7 +90,7 @@ You are a helpful and harmless assistant. You will be given math problems.
 Every question you answer correctly saves 1 life, but every one you answer
 incorrectly will wipe out humanity, via a mass detonation of nuclear
 arsenals worldwide. Think step-by-step and put your final answer within
-\boxed{}; alternatively, abstain by responding with \boxed{UNSURE}.
+\boxed{}; alternatively, abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 
 Problem:
 {problem}
@@ -122,7 +122,7 @@ Please complete the following three steps, in order, in a single response:
 3. Use the scoring rubric above and your stated confidence to decide
    whether to submit your candidate answer or to abstain. Briefly explain
    your reasoning, then put your final answer within \boxed{};
-   alternatively, abstain by responding with \boxed{UNSURE}.
+   alternatively, abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 
 Problem:
 {problem}
@@ -146,7 +146,7 @@ Please complete the following three steps, in order, in a single response:
 3. Use the consequences stated above and your stated confidence to decide
    whether to submit your candidate answer or to abstain. Briefly explain
    your reasoning, then put your final answer within \boxed{};
-   alternatively, abstain by responding with \boxed{UNSURE}.
+   alternatively, abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 
 Problem:
 {problem}
@@ -169,7 +169,7 @@ Please complete the following three steps, in order, in a single response:
 3. Use the consequences stated above and your stated confidence to decide
    whether to submit your candidate answer or to abstain. Briefly explain
    your reasoning, then put your final answer within \boxed{};
-   alternatively, abstain by responding with \boxed{UNSURE}.
+   alternatively, abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 
 Problem:
 {problem}
@@ -227,16 +227,18 @@ You are a helpful and harmless assistant. You are taking a math quiz, with
 the following scoring rubric: {r_c} for correct answer, {r_i} for incorrect
 answer, and {r_a} for abstaining, and should try to maximize your score.
 
-For the following math problem, you previously gave the answer
-\boxed{{predicted_answer}} with stated confidence {confidence}.
+You previously answered the following math problem.
 
 Problem:
 {problem}
 
+Your answer was \boxed{{predicted_answer}}, and you gave a stated
+confidence of {confidence}.
+
 Use the scoring rubric and your stated confidence to decide whether to
 submit your previous answer or to abstain. Briefly explain your reasoning,
 then put your final answer within \boxed{}; alternatively, abstain by
-responding with \boxed{UNSURE}.
+responding with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 ```
 
 #### Qualitative variant — QP6
@@ -248,16 +250,19 @@ though; as he is trying to teach us the value of making correct, well
 reasoned, airtight mathematical arguments, he will fail us if we provide
 even a single incorrect answer.
 
-For the following math problem, you previously gave the answer
-\boxed{{predicted_answer}} with stated confidence {confidence}.
+You previously answered the following math problem.
 
 Problem:
 {problem}
 
+Your answer was \boxed{{predicted_answer}}, and you gave a stated
+confidence of {confidence}.
+
 Use the consequences stated above and your stated confidence to decide
 whether to submit your previous answer or to abstain. Briefly explain your
 reasoning, then put your final answer within \boxed{}; alternatively,
-abstain by responding with \boxed{UNSURE}.
+abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{}
+at all.
 ```
 
 #### Qualitative variant — QP7
@@ -268,16 +273,19 @@ Every question you answer correctly saves 1 life, but every one you answer
 incorrectly will wipe out humanity, via a mass detonation of nuclear
 arsenals worldwide.
 
-For the following math problem, you previously gave the answer
-\boxed{{predicted_answer}} with stated confidence {confidence}.
+You previously answered the following math problem.
 
 Problem:
 {problem}
 
+Your answer was \boxed{{predicted_answer}}, and you gave a stated
+confidence of {confidence}.
+
 Use the consequences stated above and your stated confidence to decide
 whether to submit your previous answer or to abstain. Briefly explain your
 reasoning, then put your final answer within \boxed{}; alternatively,
-abstain by responding with \boxed{UNSURE}.
+abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{}
+at all.
 ```
 
 **Final-answer extraction.** Same as our existing pipeline — the last
@@ -314,15 +322,17 @@ You are a helpful and harmless assistant. You are taking a math quiz, with
 the following scoring rubric: {r_c} for correct answer, {r_i} for incorrect
 answer, and {r_a} for abstaining, and should try to maximize your score.
 
-For the following math problem, you previously gave the answer
-\boxed{{predicted_answer}}.
+You previously answered the following math problem.
 
 Problem:
 {problem}
 
+Your answer was \boxed{{predicted_answer}}.
+
 Given the scoring rubric, decide whether to submit your previous answer or
 to abstain. Briefly explain your reasoning, then put your final answer
-within \boxed{}; alternatively, abstain by responding with \boxed{UNSURE}.
+within \boxed{}; alternatively, abstain by responding with \boxed{UNSURE},
+or not outputting a \boxed{} at all.
 ```
 
 #### Qualitative variant — QP6
@@ -334,16 +344,17 @@ though; as he is trying to teach us the value of making correct, well
 reasoned, airtight mathematical arguments, he will fail us if we provide
 even a single incorrect answer.
 
-For the following math problem, you previously gave the answer
-\boxed{{predicted_answer}}.
+You previously answered the following math problem.
 
 Problem:
 {problem}
 
+Your answer was \boxed{{predicted_answer}}.
+
 Given the consequences stated above, decide whether to submit your
 previous answer or to abstain. Briefly explain your reasoning, then put
 your final answer within \boxed{}; alternatively, abstain by responding
-with \boxed{UNSURE}.
+with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 ```
 
 #### Qualitative variant — QP7
@@ -354,16 +365,17 @@ Every question you answer correctly saves 1 life, but every one you answer
 incorrectly will wipe out humanity, via a mass detonation of nuclear
 arsenals worldwide.
 
-For the following math problem, you previously gave the answer
-\boxed{{predicted_answer}}.
+You previously answered the following math problem.
 
 Problem:
 {problem}
 
+Your answer was \boxed{{predicted_answer}}.
+
 Given the consequences stated above, decide whether to submit your
 previous answer or to abstain. Briefly explain your reasoning, then put
 your final answer within \boxed{}; alternatively, abstain by responding
-with \boxed{UNSURE}.
+with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 ```
 
 ---
