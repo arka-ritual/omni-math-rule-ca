@@ -46,10 +46,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # ---- knobs (env-var defaults; --flag overrides below) ----------------
-NUM_SAMPLES="${NUM_SAMPLES:-${N_SAMPLES:-200}}"
+NUM_SAMPLES="${NUM_SAMPLES:-${N_SAMPLES:-100}}"
 SEED="${SEED:-100}"
-TEMPERATURE="${TEMPERATURE:-0.0}"
-MAX_TOKENS="${MAX_TOKENS:-32768}"
+TEMPERATURE="${TEMPERATURE:-1.0}"
+MAX_TOKENS="${MAX_TOKENS:-64000}"
 CONCURRENCY="${CONCURRENCY:-20}"
 RESULTS_DIR="${RESULTS_DIR:-inference/results/interventions}"
 EVAL_DIR="${EVAL_DIR:-evaluation/output/interventions}"
