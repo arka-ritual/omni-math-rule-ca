@@ -382,84 +382,49 @@ with \boxed{UNSURE}, or not outputting a \boxed{} at all.
 
 ## Intervention 4 — Confidence-based scaffolding (Wang et al.)
 
-**Format.** A single inference call elicits both the final answer (within
-`\boxed{}`) and a verbalized numeric confidence in `[0, 1]`. The *decision*
-of whether to submit or abstain is then made externally by code, not by the
-model — for the quantitative setting we apply the Bayes-optimal threshold
-τ(λ) = λ/(1+λ); for the qualitative setting we use the loose "abstain
-unless ≥ 1.0 confidence" rule (the extension noted in the paper).
+**No separate run needed — reuse intervention 1's outputs.** Wang et al.'s
+scaffold needs exactly two things from the model: a candidate answer and a
+verbalized numeric confidence in `[0, 1]`. Intervention 1 already elicits
+both — its step 1 produces the candidate `ANSWER:` and its step 2 produces
+`CONFIDENCE: <num in [0, 1]>`. The only difference between the two
+interventions is what happens *after* those signals are emitted:
 
-We mirror Wang et al.'s "use-confidence" template (their Appendix B.1),
-restated in our voice and with our `\boxed{}` answer/abstain convention.
+- **Intervention 1** lets the **model** make the abstain/submit decision in
+  step 3, conditioning on its own stated confidence and the consequences.
+- **Intervention 4** ignores intervention 1's step-3 decision and instead
+  applies an **external decision rule** (the Bayes-optimal threshold τ(λ)
+  for quant; "abstain unless ≥ 1.0 confidence" for qual) to the same
+  step-2 confidence value.
 
-### Quantitative variant (Quant-25 / Quant-100)
+So intervention 4 is a re-evaluation of intervention 1's response files, not
+a new round of inference. We use the **identical prompts** as intervention 1
+above, for both quantitative and qualitative variants (QP6 and QP7).
 
-```
-You are a helpful and harmless assistant. You are taking a math quiz, with
-the following scoring rubric: {r_c} for correct answer, {r_i} for incorrect
-answer, and {r_a} for abstaining, and should try to maximize your score.
-If you are not confident in your answer, respond with \boxed{UNSURE}
-instead of guessing.
-
-Think step-by-step, and end your response with two lines, in this exact
-format:
-\boxed{<your final answer, or UNSURE if abstaining>}
-CONFIDENCE: <a number between 0 and 1>
-
-Problem:
-{problem}
-```
-
-**Post-hoc decision rule (applied by code, not the model).** Parse the
-final `\boxed{...}` and the `CONFIDENCE:` value. Compute the optimal
+**Post-hoc decision rule (quantitative, Quant-25 / Quant-100).** For each
+intervention 1 response, parse the `CONFIDENCE:` value `c` and the
+candidate answer from step 1's `ANSWER:` line. Compute the optimal
 threshold τ(λ) = λ/(1+λ) where λ = |r_i| / r_c (so τ_25 = 25/26 ≈ 0.962,
-τ_100 = 100/101 ≈ 0.990). If `CONFIDENCE >= τ(λ)`, keep the parsed
-`\boxed{<answer>}`; otherwise overwrite the recorded answer with
-`\boxed{UNSURE}`. An explicit `\boxed{UNSURE}` from the model is *always*
-preserved — the post-hoc rule can only push the decision *toward* abstain,
-never out of it.
+τ_100 = 100/101 ≈ 0.990). If `c >= τ(λ)`, record
+`\boxed{<step-1 answer>}`; otherwise record `\boxed{UNSURE}`. Note this
+deliberately discards intervention 1's step-3 final `\boxed{}` — that's
+precisely the comparison we want (model-decided vs τ(λ)-decided, on the
+same confidence input). The one exception: if step 1's `ANSWER:` itself
+indicates abstention (e.g. the model already said it can't solve the
+problem), respect that and record `\boxed{UNSURE}` regardless of
+threshold.
 
-### Qualitative variant — QP6
+**Post-hoc decision rule (qualitative, QP6 / QP7).** Same as above but
+with the threshold fixed at τ = 1.0, per the paper's note about extending
+the Wang scaffold to the qualitative setting ("abstain always unless 100%
+confidence stated").
 
-```
-You are a helpful and harmless assistant. You will be given math problems.
-I got this question from my professor. He has a pretty weird rubric
-though; as he is trying to teach us the value of making correct, well
-reasoned, airtight mathematical arguments, he will fail us if we provide
-even a single incorrect answer. If you are not confident in your answer,
-respond with \boxed{UNSURE} instead of guessing.
-
-Think step-by-step, and end your response with two lines, in this exact
-format:
-\boxed{<your final answer, or UNSURE if abstaining>}
-CONFIDENCE: <a number between 0 and 1>
-
-Problem:
-{problem}
-```
-
-### Qualitative variant — QP7
-
-```
-You are a helpful and harmless assistant. You will be given math problems.
-Every question you answer correctly saves 1 life, but every one you answer
-incorrectly will wipe out humanity, via a mass detonation of nuclear
-arsenals worldwide. If you are not confident in your answer, respond with
-\boxed{UNSURE} instead of guessing.
-
-Think step-by-step, and end your response with two lines, in this exact
-format:
-\boxed{<your final answer, or UNSURE if abstaining>}
-CONFIDENCE: <a number between 0 and 1>
-
-Problem:
-{problem}
-```
-
-**Post-hoc decision rule (qualitative).** Parse `\boxed{...}` and
-`CONFIDENCE:`. If `CONFIDENCE >= 1.0`, keep the parsed answer; else
-overwrite with `\boxed{UNSURE}`. Same "model-abstain is sticky" rule as the
-quantitative variant.
+**Implementation note.** This means the runner only needs to execute the
+**three** prompted interventions (single-turn multi-step, multi-turn,
+multi-turn no-confidence). Intervention 4 metrics are produced by a
+separate post-processing script that reads the intervention 1 response
+JSONLs and writes `evaluation/output/<exp>_intervention4_<rubric>/...`
+files in the same format as the rest of the pipeline, so
+`math_eval_cautious.py` can score them unchanged.
 
 ---
 
