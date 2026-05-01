@@ -86,7 +86,10 @@ bash swebench_pro/run.sh --gold-eval --eval-workers 8
 
 ### Resumability
 
-Sampling is **shuffle-then-slice with a fixed seed (default 100)**, so
+There are two layers of resume:
+
+**Batch level** (skip-completed-instances):
+sampling is **shuffle-then-slice with a fixed seed (default 100)**, so
 `--n 20` is a strict prefix of `--n 100` etc. Re-running the same
 command picks up where it left off:
 
@@ -100,6 +103,32 @@ bash swebench_pro/run.sh --model openai/gpt-5-nano --n 100   # only does the 80 
 Resume is keyed on `<output>/preds.json` — any `instance_id` already in
 that file is skipped. To force fresh sampling pass `--seed <n>` with a
 different value (you'll also want a different `--output`).
+
+**Per-instance level** (resume the agent loop mid-instance):
+trajectories are written **after every step** (not just at the end), so
+a driver crash leaves a useful partial trajectory on disk. Containers
+are *not* torn down on crash either (mini's `--rm` only triggers on
+container exit, not on host-process death). Re-running the same command
+will:
+
+1. Detect any `<id>.traj.json` whose last message isn't an `exit`.
+2. Read its recorded `info.runtime.container_id`.
+3. If that container is still alive, **reattach** to it, restore the
+   agent's `messages`, `n_calls`, and `cost`, and resume the step loop —
+   no re-paying for the prior model calls.
+4. If the container is dead (e.g. host rebooted, or the container's
+   2 h `sleep` ran out, or you `docker rm -f`'d it), the partial
+   trajectory is archived to `<id>.traj.partial.<timestamp>.json` and
+   the instance is started fresh.
+
+Each container's max wall-clock is bounded by `container_timeout` in
+the mini-swe-agent yaml (default `2h`). For runs you might want to
+resume after a longer pause, bump that.
+
+To bound how long a single litellm request can hang (some reasoning
+models occasionally stall mid-call), pass `--api-timeout <seconds>`
+(default 600). On timeout the request is retried up to 3 times by mini's
+retry helper.
 
 The default `--output` is derived from the model + N:
 `results/<model_slug>_n<N>` (e.g. `results/openai_gpt-5-nano_n100`),
@@ -115,7 +144,8 @@ For each run, `--output <dir>` ends up containing:
 | `preds.json` | `{instance_id: {model_name_or_path, instance_id, model_patch}}`. **This is the input to the SWE-Bench Pro grader.** Empty `model_patch` means the instance failed before submission. |
 | `exit_statuses.yaml` | `instances_by_exit_status: {<status>: [instance_ids...]}`. Healthy run statuses: `Submitted` (patch produced), `LimitsExceeded` (hit `step_limit` / `cost_limit`), `format_errors` (model couldn't follow the format). Anything else (`FileNotFoundError`, `RuntimeError`, …) is an infrastructure failure. |
 | `minisweagent.log` | Full driver log — one line per agent step, plus container start/stop / cost-tracking messages. First place to look when something fails. |
-| `<instance_id>/<instance_id>.traj.json` | Per-instance trajectory: full message history (system/user/assistant/observation) + every tool call + every observation + cumulative cost + per-step `n_calls`. The single source of truth for "what did the agent actually do on this instance". |
+| `<instance_id>/<instance_id>.traj.json` | Per-instance trajectory: full message history (system/user/assistant/observation) + every tool call + every observation + cumulative cost + per-step `n_calls`. **Written after every step** — the partial state on disk is always at most one step behind the agent. The single source of truth for "what did the agent actually do on this instance". |
+| `<instance_id>/<instance_id>.traj.partial.<ts>.json` | Archived trajectory from a previous interrupted run that couldn't be resumed (because its container was dead). Inspect for forensic value; the latest `<id>.traj.json` is the fresh-start trajectory. |
 
 A successful instance trajectory typically ends with messages like
 `{"role": "assistant", "content": "...", "tool_calls": [{"function": {"name": "bash", "arguments": "{\"command\": \"echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && cat patch.txt\"}"}}]}`

@@ -154,3 +154,9 @@ model:
     drop_params: true
     temperature: 0.0
     parallel_tool_calls: true
+    # Per-request litellm timeout (seconds). Some models (gpt-5-nano with
+    # reasoning, in particular) occasionally stall on a single request;
+    # this bounds the wait so the agent loop can retry / fail loudly
+    # instead of hanging the driver indefinitely. Override at runtime
+    # with `run_mini_on_pro.py --api-timeout <n>`.
+    timeout: 600

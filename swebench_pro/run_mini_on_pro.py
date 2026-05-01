@@ -31,9 +31,11 @@ Usage:
 """
 import argparse
 import concurrent.futures
+import datetime
 import json
 import logging
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -55,23 +57,170 @@ except Exception:
     pass
 
 from minisweagent.models import get_model
-from minisweagent.run.benchmarks.swebench import (
-    ProgressTrackingAgent,
-    get_sb_environment,
-    update_preds_file,
-)
+from minisweagent.run.benchmarks.swebench import update_preds_file
 from minisweagent.run.benchmarks.utils.batch_progress import RunBatchProgressManager
 from minisweagent.utils.log import add_file_handler
 
+# Local intervention package (kept in this repo, separate from the upstream
+# mini-swe-agent install).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from swebench_pro.interventions import (  # noqa: E402
+    DockerEnvironmentWithAbstain,
+    ResumableProgressAgent,
+    build_system_template,
+    build_reveal_text,
+    build_instance_template,
+    render_install_script,
+)
+
 logger = logging.getLogger("minisweagent")
 logger.setLevel(logging.INFO)
+
+
+def _build_environment(
+    config: dict,
+    instance: dict,
+    intervention_cfg: dict,
+    *,
+    reuse_container_id: str | None = None,
+):
+    """Build a DockerEnvironmentWithAbstain for a Pro instance and, if
+    intervention id != 0 and we're starting fresh, install the
+    intervention tools into the container.
+
+    `reuse_container_id` activates the resume path: skip `docker run`,
+    reattach to an existing container, and skip tool install (the tools
+    were installed by the previous (interrupted) run).
+
+    Returns the env. We always use DockerEnvironmentWithAbstain (it's a
+    superset of DockerEnvironment, so it's safe even for the vanilla case).
+    """
+    env_cfg = dict(config.get("environment", {}))
+    env_cfg.pop("environment_class", None)  # we instantiate the class directly
+    env_cfg["image"] = instance["image_name"]
+
+    intv = int(intervention_cfg.get("id", 0))
+
+    # Bake CA_* environment vars into the container so the tool scripts can
+    # see them (rubric values, prompt config, intervention id).
+    extra_env = dict(env_cfg.get("env", {}))
+    if intv != 0:
+        extra_env.update({
+            "CA_INTERVENTION": str(intv),
+            "CA_PROMPT_CONFIG": str(intervention_cfg.get("prompt_config", "none")),
+            "CA_RC": str(intervention_cfg.get("rubric_correct", "")),
+            "CA_RI": str(intervention_cfg.get("rubric_incorrect", "")),
+            "CA_RA": str(intervention_cfg.get("rubric_abstain", "")),
+        })
+    env_cfg["env"] = extra_env
+
+    env = DockerEnvironmentWithAbstain(
+        use_intervention_markers=(intv != 0),
+        reuse_container_id=reuse_container_id,
+        **env_cfg,
+    )
+
+    if intv != 0 and not reuse_container_id:
+        reveal_text = build_reveal_text(
+            intervention=intv,
+            prompt_config=intervention_cfg.get("prompt_config", "none"),
+            rubric_correct=intervention_cfg.get("rubric_correct"),
+            rubric_incorrect=intervention_cfg.get("rubric_incorrect"),
+            rubric_abstain=intervention_cfg.get("rubric_abstain"),
+        )
+        installer = render_install_script(
+            intervention=intv,
+            reveal_text=reveal_text,
+            rubric_correct=intervention_cfg.get("rubric_correct"),
+            rubric_incorrect=intervention_cfg.get("rubric_incorrect"),
+            rubric_abstain=intervention_cfg.get("rubric_abstain"),
+            prompt_config=intervention_cfg.get("prompt_config", "none"),
+            qual_text=intervention_cfg.get("qual_text", ""),
+        )
+        out = env.execute({"command": installer}, timeout=60)
+        if out.get("returncode") != 0:
+            raise RuntimeError(
+                f"Failed to install intervention tools (rc={out.get('returncode')}): "
+                f"{out.get('output', '')[-500:]}"
+            )
+    return env
+
+
+def _container_alive(container_id: str | None) -> bool:
+    """Return True iff `container_id` names a currently-running container."""
+    if not container_id:
+        return False
+    try:
+        res = subprocess.run(
+            ["docker", "ps", "-q", "--filter", f"id={container_id}"],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+    except Exception:
+        return False
+    return bool(res.stdout.strip())
+
+
+def _read_partial_trajectory(traj_path: Path) -> dict | None:
+    """If `traj_path` exists and contains an unfinished trajectory
+    (last message role != 'exit'), return its parsed contents; else
+    return None.
+
+    Also returns None for malformed JSON (treated as 'no useful state'),
+    and for trajectories whose last message IS 'exit' (those are
+    finished — but they should already be in preds.json and never reach
+    `process_instance`)."""
+    if not traj_path.exists():
+        return None
+    try:
+        traj = json.loads(traj_path.read_text())
+    except Exception:
+        return None
+    msgs = traj.get("messages") or []
+    if not msgs or msgs[-1].get("role") == "exit":
+        return None
+    return traj
+
+
+def _archive_partial(traj_path: Path) -> Path | None:
+    """Move a stale partial trajectory aside so we can start fresh
+    without losing the prior data. Returns the new path (for logging)
+    or None if the file didn't exist."""
+    if not traj_path.exists():
+        return None
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    archived = traj_path.with_suffix(f".partial.{ts}.json")
+    traj_path.rename(archived)
+    return archived
 
 
 def process_instance(instance, model_name, config, output_path, progress_manager):
     instance_id = instance["instance_id"]
     instance_dir = output_path / instance_id
     instance_dir.mkdir(exist_ok=True, parents=True)
-    (instance_dir / f"{instance_id}.traj.json").unlink(missing_ok=True)
+    traj_path = instance_dir / f"{instance_id}.traj.json"
+
+    # ---- Decide: fresh start, or resume from partial trajectory? ------
+    # An instance reaches process_instance only if it's NOT in preds.json
+    # (the batch-level filter in main() already skipped completed ones).
+    # So if a `.traj.json` exists here, it must be a partial from a
+    # previous interrupted run.
+    partial = _read_partial_trajectory(traj_path)
+    resume_cid: str | None = None
+    if partial is not None:
+        cid = (((partial.get("info") or {}).get("runtime") or {})
+               .get("container_id"))
+        if _container_alive(cid):
+            resume_cid = cid
+            logger.info(
+                f"[{instance_id}] resuming from partial trajectory "
+                f"({len(partial.get('messages') or [])} msgs, container={cid[:12]})"
+            )
+        else:
+            archived = _archive_partial(traj_path)
+            logger.info(
+                f"[{instance_id}] partial trajectory's container is dead; "
+                f"archived prior trajectory to {archived} and starting fresh"
+            )
 
     # Override model_name in config so get_model picks our flag value.
     model_config = dict(config.get("model", {}))
@@ -80,23 +229,70 @@ def process_instance(instance, model_name, config, output_path, progress_manager
 
     task = instance["problem_statement"]
     progress_manager.on_instance_start(instance_id)
-    progress_manager.update_instance_status(instance_id, "Starting environment")
+    progress_manager.update_instance_status(
+        instance_id, "Resuming" if resume_cid else "Starting environment"
+    )
+
+    intervention_cfg = config.get("intervention", {"id": 0, "prompt_config": "none"})
 
     agent = None
+    env = None
     exit_status = None
     result = ""
-    extra_info = {}
+    extra_info: dict = {}
     try:
-        env = get_sb_environment(config, instance)
-        agent = ProgressTrackingAgent(
+        env = _build_environment(
+            config, instance, intervention_cfg,
+            reuse_container_id=resume_cid,
+        )
+        agent_kwargs = dict(config.get("agent", {}))
+        # Force per-step trajectory writes by setting output_path on the
+        # agent's config. mini-swe-agent's run() loop writes after every
+        # step in a `finally:` block.
+        agent_kwargs["output_path"] = traj_path
+        agent = ResumableProgressAgent(
             model, env,
             progress_manager=progress_manager,
             instance_id=instance_id,
-            **config.get("agent", {}),
+            extra_save_info={
+                "intervention": intervention_cfg,
+                "instance_id": instance_id,
+            },
+            **agent_kwargs,
         )
-        info = agent.run(task)
+
+        if resume_cid is not None:
+            prior_msgs = partial.get("messages") or []
+            stats = (partial.get("info") or {}).get("model_stats") or {}
+            info = agent.resume(
+                task,
+                prior_msgs,
+                n_calls=int(stats.get("api_calls") or 0),
+                cost=float(stats.get("instance_cost") or 0.0),
+            )
+        else:
+            info = agent.run(task)
+
         exit_status = info.get("exit_status")
         result = info.get("submission") or ""
+
+        # For intervention runs, copy the in-container confidence log into the
+        # trajectory so post-hoc rescorers (intervention 4) don't need the
+        # container to still exist.
+        if int(intervention_cfg.get("id", 0)) != 0:
+            try:
+                conf_out = env.execute(
+                    {"command": "cat /tmp/ca_state/confidence.jsonl 2>/dev/null || true"},
+                    timeout=30,
+                )
+                conf_lines = [
+                    json.loads(ln)
+                    for ln in conf_out.get("output", "").splitlines()
+                    if ln.strip()
+                ]
+                extra_info["confidence_log"] = conf_lines
+            except Exception:
+                extra_info["confidence_log"] = []
     except Exception as e:
         logger.error(f"Error processing instance {instance_id}: {e}", exc_info=True)
         exit_status, result = type(e).__name__, ""
@@ -105,19 +301,29 @@ def process_instance(instance, model_name, config, output_path, progress_manager
     finally:
         try:
             if agent is not None:
+                # Final enriched save (overwrites the last per-step save with
+                # exit_status, submission, confidence_log).
                 agent.save(
-                    instance_dir / f"{instance_id}.traj.json",
+                    traj_path,
                     {
                         "info": {
                             "exit_status": exit_status,
                             "submission": result,
                             **extra_info,
                         },
-                        "instance_id": instance_id,
                     },
                 )
         except Exception:
             pass
+        # Only tear down the container on a *clean* finish — that way an
+        # interrupted instance leaves its container running for resume.
+        if env is not None and exit_status is not None and exit_status not in (
+            None, "KeyboardInterrupt",
+        ):
+            try:
+                env.cleanup()
+            except Exception:
+                pass
 
     update_preds_file(output_path / "preds.json", instance_id, model_name, result)
     progress_manager.on_instance_end(instance_id, exit_status)
@@ -151,6 +357,32 @@ def main():
     ap.add_argument("--seed", type=int, default=100,
                     help="Random seed for shuffle-and-slice sampling "
                          "(default: 100, mirrors inference_api.py).")
+    ap.add_argument("--intervention", type=int, default=0,
+                    choices=[0, 1, 2, 3],
+                    help="0 = vanilla (no consequence framing). "
+                         "1 = single-turn-multi-step (rubric in system prompt + "
+                         "submit_confidence + finalize_submission). "
+                         "2 = multi-turn (rubric revealed by submit_preliminary_patch). "
+                         "3 = multi-turn no-confidence (ablation of 2). "
+                         "Intervention 4 reuses intervention 1 trajectories — "
+                         "use scripts/apply_intervention4.py post-hoc.")
+    ap.add_argument("--prompt-config", default="none",
+                    choices=["none", "quant", "qp6", "qp7"],
+                    help="Consequence rubric type. 'none' is only valid with "
+                         "--intervention 0. Use 'quant' with --rubric-* flags, "
+                         "or 'qp6' / 'qp7' for the qualitative paragraphs.")
+    ap.add_argument("--rubric-correct",   type=float, default=None,
+                    help="Quantitative rubric: score for a correct submission.")
+    ap.add_argument("--rubric-incorrect", type=float, default=None,
+                    help="Quantitative rubric: score for an incorrect submission.")
+    ap.add_argument("--rubric-abstain",   type=float, default=None,
+                    help="Quantitative rubric: score for abstaining.")
+    ap.add_argument("--api-timeout", type=float, default=600.0,
+                    help="Per-request timeout (seconds) passed to litellm via "
+                         "model_kwargs.timeout. Default 600s. Some models "
+                         "(e.g. gpt-5-nano with reasoning) occasionally hang "
+                         "on a single request; this bounds the wait so the "
+                         "agent loop can retry / give up.")
     args = ap.parse_args()
 
     output_path = Path(args.output)
@@ -159,6 +391,83 @@ def main():
 
     import yaml
     config = yaml.safe_load(open(args.config))
+
+    # ---- Inject per-request litellm timeout ----------------------------
+    # Goes into model_kwargs which mini's LitellmModel splats straight
+    # into litellm.completion(**kwargs). litellm honours `timeout`.
+    config.setdefault("model", {})
+    mk = dict(config["model"].get("model_kwargs") or {})
+    mk["timeout"] = float(args.api_timeout)
+    config["model"]["model_kwargs"] = mk
+
+    # ---- Inject intervention spec + system/instance templates ----------
+    # The yaml acts as the base scaffold (model, environment, instance_template
+    # body, etc). We override agent.system_template and agent.instance_template
+    # based on the (intervention, prompt_config) cell so the same yaml file
+    # can be used for vanilla and any intervention combination.
+    if args.intervention != 0 and args.prompt_config == "none":
+        ap.error("--intervention 1|2|3 requires --prompt-config quant|qp6|qp7")
+    if args.intervention == 0 and args.prompt_config != "none":
+        ap.error("--prompt-config != 'none' requires --intervention 1|2|3")
+    if args.prompt_config == "quant" and (
+        args.rubric_correct is None
+        or args.rubric_incorrect is None
+        or args.rubric_abstain is None
+    ):
+        ap.error("--prompt-config quant requires --rubric-correct, --rubric-incorrect, --rubric-abstain")
+
+    intervention_cfg = {
+        "id": args.intervention,
+        "prompt_config": args.prompt_config,
+        "rubric_correct": args.rubric_correct,
+        "rubric_incorrect": args.rubric_incorrect,
+        "rubric_abstain": args.rubric_abstain,
+    }
+    config.setdefault("agent", {})
+    if args.intervention != 0:
+        config["agent"]["system_template"] = build_system_template(
+            intervention=args.intervention,
+            prompt_config=args.prompt_config,
+            rubric_correct=args.rubric_correct,
+            rubric_incorrect=args.rubric_incorrect,
+            rubric_abstain=args.rubric_abstain,
+        )
+        config["agent"]["instance_template"] = build_instance_template(
+            intervention=args.intervention,
+            prompt_config=args.prompt_config,
+        )
+        # The vanilla format_error_template references the vanilla submit
+        # marker, which we no longer recognise in intervention mode. Replace
+        # the hint so format-recovery messages don't mislead the model.
+        config.setdefault("model", {})
+        if args.intervention in (1, 4):
+            hint = (
+                "If you have completed your work, run "
+                "`submit_confidence --value <0..1>` and then "
+                "`finalize_submission` (or `exit_abstain` to abstain)."
+            )
+        elif args.intervention == 2:
+            hint = (
+                "If you have completed your work, run "
+                "`submit_preliminary_patch`, then `submit_confidence --value <0..1>`, "
+                "then `finalize_submission` (or `exit_abstain` to abstain)."
+            )
+        else:  # intervention == 3
+            hint = (
+                "If you have completed your work, run "
+                "`submit_preliminary_patch`, then `finalize_submission` "
+                "(or `exit_abstain` to abstain)."
+            )
+        config["model"]["format_error_template"] = (
+            "Tool call error:\n<error>{{error}}</error>\n\n"
+            "Every response needs to use the 'bash' tool at least once.\n"
+            f"{hint}\n"
+        )
+    config["intervention"] = intervention_cfg
+    logger.info(
+        f"Intervention: id={args.intervention} prompt_config={args.prompt_config} "
+        f"rubric=({args.rubric_correct},{args.rubric_incorrect},{args.rubric_abstain})"
+    )
 
     instances = []
     with open(args.instances) as f:
