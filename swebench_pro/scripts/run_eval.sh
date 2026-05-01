@@ -61,6 +61,23 @@ else
     python "$HERE/preds_to_eval_input.py" "$RUNDIR"
 fi
 
+# Short-circuit: if no patches survived (e.g. every instance abstained,
+# or every instance crashed before producing a patch), skip the upstream
+# evaluator. It would otherwise divide by zero on
+#   `sum(eval_results.values()) / len(eval_results)`
+# and exit 1, breaking the orchestrator (run_interventions.sh) for what
+# is actually a legitimate, well-behaved outcome.
+NPATCHES="$(python -c "import json; print(len(json.load(open('$RUNDIR/eval/patches_for_eval.json'))))")"
+if [ "$NPATCHES" -eq 0 ]; then
+    echo "[eval] 0 patches to evaluate (every instance abstained or produced no patch)."
+    echo "[eval] Skipping upstream swe_bench_pro_eval.py and writing empty eval_results.json."
+    echo '{}' > "$RUNDIR/eval/eval_results.json"
+    echo
+    echo "[eval] Done."
+    echo "  results: $RUNDIR/eval/eval_results.json   (empty — see preds.json + skipped_empty.txt)"
+    exit 0
+fi
+
 # 3. Build per-rundir normalized eval data.
 echo "[eval] Building eval_data.jsonl from upstream sweap_eval_full_v2.jsonl"
 if [ "$GOLD" -eq 1 ]; then

@@ -126,6 +126,15 @@ environment:
     - "--entrypoint"
     - ""
     - "--rm"
+  # Pro images are multi-GB and the first `docker run` for an unseen
+  # image has to download + extract before `sleep 2h` can start.
+  # mini-swe-agent's default of 120s isn't enough for the larger ones
+  # (openlibrary, teleport, etc.). Bump to 30 minutes.
+  pull_timeout: 1800
+  # Keep the container alive long enough for slow models (gpt-5.4-nano
+  # with reasoning routinely uses 30+ min). Default is 2h; bump so a
+  # 100-step run with a slow reasoning model has headroom.
+  container_timeout: "6h"
 
 model:
   observation_template: |
