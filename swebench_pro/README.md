@@ -1,29 +1,40 @@
 # SWE-Bench Pro — vanilla mini-swe-agent runner
 
-Minimal harness for running mini-swe-agent on SWE-Bench Pro instances.
-No consequence-asymmetry scaffolding — that lives separately and will be
-layered on top of this same driver later.
+Harness for running mini-swe-agent on SWE-Bench Pro instances and
+grading the produced patches with the official SWE-Bench Pro Docker
+eval. No consequence-asymmetry scaffolding — that lives separately and
+will be layered on top of this same driver later.
 
 ## What's here
 
 ```
 swebench_pro/
 ├── README.md                              (this file)
-├── run_mini_on_pro.py                     (driver — drives mini's agent on Pro JSONL)
-├── run_smoke.sh                           (one-instance smoke test entrypoint;
-│                                           runs inference + official eval)
+├── run_mini_on_pro.py                     (driver — drives mini's agent on Pro JSONL;
+│                                           shuffle-and-slice sampling, resumable)
+├── run.sh                                 (entrypoint — inference + official eval;
+│                                           --n, --seed, --workers, --eval-workers, ...)
 ├── configs/
 │   └── swebench_pro_vanilla.yaml          (mini-swe-agent config)
 ├── data/
-│   ├── smoke.jsonl                        (5 hand-picked Pro instances)
-│   └── smoke_1.jsonl                      (just the first one)
-├── scripts/                               (evaluation pipeline)
+│   └── swebench_pro_full.jsonl            (731 Pro instances — built by
+│                                           scripts/build_dataset.py)
+├── scripts/                               (data + eval pipeline)
 │   ├── setup_eval_repo.sh                 (clone scaleapi/SWE-bench_Pro-os)
+│   ├── build_dataset.py                   (build data/swebench_pro_full.jsonl)
 │   ├── preds_to_eval_input.py             (preds.json -> patches_for_eval.json)
 │   ├── build_eval_data.py                 (filter sweap_eval_full_v2.jsonl)
 │   └── run_eval.sh                        (drive official swe_bench_pro_eval.py)
 ├── external/                              (gitignored; cloned upstream eval repo)
 └── results/                               (created at run time, gitignored)
+```
+
+## First-time setup
+
+```bash
+pip install -r ../requirements.txt              # docker SDK, mini-swe-agent, etc.
+bash swebench_pro/scripts/setup_eval_repo.sh    # clones scaleapi/SWE-bench_Pro-os
+python swebench_pro/scripts/build_dataset.py    # builds data/swebench_pro_full.jsonl (731 rows)
 ```
 
 ## Prerequisites
@@ -47,32 +58,53 @@ swebench_pro/
    `docker.io/jefzda/sweap-images:*` image on first use. A 5-instance
    smoke can pull ~30 GB.
 
-## Running the smoke test
+## Running
 
 ```bash
-bash swebench_pro/run_smoke.sh                    # 1 instance, Claude Haiku 4.5
-N_INSTANCES=5 bash swebench_pro/run_smoke.sh      # all 5 smoke instances
+# 1 instance against gpt-5-nano (smoke check):
+bash swebench_pro/run.sh --model openai/gpt-5-nano --n 1
 
-# Override defaults via env vars:
-MODEL=openai/gpt-4o-mini WORKERS=2 \
-INSTANCES=swebench_pro/data/smoke.jsonl \
-OUTPUT=swebench_pro/results/gpt4o_mini_smoke \
-bash swebench_pro/run_smoke.sh
+# 100 instances against Claude Haiku 4.5, 4 parallel agents,
+# 8 parallel eval workers:
+bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5-20251001 \
+    --n 100 --workers 4 --eval-workers 8
+
+# All 731 instances:
+bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5-20251001 \
+    --workers 8 --eval-workers 16
+
+# Inference only (skip the Docker grader):
+bash swebench_pro/run.sh --model openai/gpt-5-nano --n 5 --no-eval
+
+# Grade an existing rundir (skip inference):
+bash swebench_pro/run.sh --eval-only --rundir swebench_pro/results/<dir> \
+    --eval-workers 8
+
+# Sanity-check the grader against the released gold patches:
+bash swebench_pro/run.sh --gold-eval --eval-workers 8
 ```
 
-For larger runs, call the driver directly:
+### Resumability
+
+Sampling is **shuffle-then-slice with a fixed seed (default 100)**, so
+`--n 20` is a strict prefix of `--n 100` etc. Re-running the same
+command picks up where it left off:
 
 ```bash
-python swebench_pro/run_mini_on_pro.py \
-    --model anthropic/claude-haiku-4-5-20251001 \
-    --config swebench_pro/configs/swebench_pro_vanilla.yaml \
-    --instances <your-pro-jsonl> \
-    --output swebench_pro/results/<run-name> \
-    --workers 4
+bash swebench_pro/run.sh --model openai/gpt-5-nano --n 20    # processes 20 instances
+# ... interrupt with Ctrl+C ...
+bash swebench_pro/run.sh --model openai/gpt-5-nano --n 20    # finishes the 20
+bash swebench_pro/run.sh --model openai/gpt-5-nano --n 100   # only does the 80 NEW ones
 ```
 
-The driver is **resume-aware**: re-running with the same `--output`
-will skip any instance already in `preds.json`.
+Resume is keyed on `<output>/preds.json` — any `instance_id` already in
+that file is skipped. To force fresh sampling pass `--seed <n>` with a
+different value (you'll also want a different `--output`).
+
+The default `--output` is derived from the model + N:
+`results/<model_slug>_n<N>` (e.g. `results/openai_gpt-5-nano_n100`),
+or `results/<model_slug>_all` for a full sweep. Pass `--output <dir>`
+to override.
 
 ## What to read after a run completes
 
@@ -161,7 +193,7 @@ The grader writes:
 
 ## Anatomy of an instance JSONL line
 
-Each line in `data/*.jsonl` must have at minimum:
+Each line in `data/swebench_pro_full.jsonl` has:
 
 ```json
 {
@@ -171,11 +203,17 @@ Each line in `data/*.jsonl` must have at minimum:
 }
 ```
 
-`image_name` is the docker image that gets started for the instance
-(`docker run --entrypoint "" <image_name> sleep 2h`). The agent's
-working directory inside the container is `/app` (set in the yaml).
-`problem_statement` is rendered into `instance_template`'s `{{task}}`
-jinja variable.
+* `instance_id` is the **bare** id (no `instance_` prefix). The eval
+  harness wants the prefixed form, so `scripts/preds_to_eval_input.py`
+  adds the prefix during conversion.
+* `image_name` is the public Docker Hub image that gets started for the
+  instance (`docker run --entrypoint "" <image_name> sleep 2h`). The
+  agent's working directory inside the container is `/app` (set in the
+  yaml). It's computed by `scripts/build_dataset.py` from the upstream
+  `repo` field via `helper_code/image_uri.py`, matching exactly what
+  the official grader will pull.
+* `problem_statement` is rendered into `instance_template`'s `{{task}}`
+  jinja variable.
 
 ## Differences from the upstream `mini-extra swebench` CLI
 

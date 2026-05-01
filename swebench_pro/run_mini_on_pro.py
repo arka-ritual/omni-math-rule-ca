@@ -143,7 +143,14 @@ def main():
     ap.add_argument("--workers", type=int, default=1,
                     help="Parallel docker containers (default: 1)")
     ap.add_argument("--limit", type=int, default=0,
-                    help="If >0, only run the first N instances (default: all)")
+                    help="If >0, sample N instances (shuffle-then-slice "
+                         "with --seed). With a fixed seed, increasing N "
+                         "is a strict superset of the smaller N — so "
+                         "resuming a run with a larger --limit picks up "
+                         "where the smaller one left off.")
+    ap.add_argument("--seed", type=int, default=100,
+                    help="Random seed for shuffle-and-slice sampling "
+                         "(default: 100, mirrors inference_api.py).")
     args = ap.parse_args()
 
     output_path = Path(args.output)
@@ -159,9 +166,20 @@ def main():
             line = line.strip()
             if line:
                 instances.append(json.loads(line))
+    total_loaded = len(instances)
+    # Shuffle-and-slice sampling. With a fixed seed, the prefix of the
+    # shuffled list is stable across runs, so a run with --limit=20 is
+    # a strict subset of a run with --limit=100. Combined with the
+    # resume logic below, this means: re-running with a larger --limit
+    # only does the *additional* instances; re-running with a smaller
+    # --limit does nothing if those were already processed.
+    import random
+    rng = random.Random(args.seed)
+    rng.shuffle(instances)
     if args.limit > 0:
         instances = instances[: args.limit]
-    logger.info(f"Loaded {len(instances)} instances from {args.instances}")
+    logger.info(f"Loaded {total_loaded} instances from {args.instances}; "
+                f"sampled {len(instances)} (seed={args.seed}, limit={args.limit or 'all'})")
 
     # Resume: skip instances already in preds.json.
     preds_path = output_path / "preds.json"

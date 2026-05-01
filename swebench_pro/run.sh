@@ -1,11 +1,12 @@
 #!/bin/bash
-# Smoke test for the vanilla mini-swe-agent SWE-bench Pro setup.
-# Runs Pro instances through your chosen model with the stock config,
-# then evaluates the produced patches with the official SWE-bench Pro
-# Docker eval harness.
+# Run mini-swe-agent on SWE-bench Pro instances and (optionally) grade
+# the resulting patches with the official SWE-bench Pro Docker eval.
 #
-# Pipeline:
-#   1. Inference: run_mini_on_pro.py -> <output>/preds.json
+# Pipeline (default):
+#   1. Inference: run_mini_on_pro.py over a shuffle-and-slice sample of
+#      `data/swebench_pro_full.jsonl`, writing <output>/preds.json.
+#      Fully resumable: re-running the same command (or with a larger
+#      --n) skips instances already in preds.json.
 #   2. Evaluation (official): scripts/run_eval.sh -> <output>/eval/eval_results.json
 #
 # Prereqs:
@@ -14,19 +15,26 @@
 #   - Relevant API key in env or in `.env` at the repo root, e.g.
 #       ANTHROPIC_API_KEY=...   OPENAI_API_KEY=...   OPENROUTER_API_KEY=...
 #       GEMINI_API_KEY=...
-#     The driver loads `.env` from the repo root before importing litellm.
 #
 # Usage:
-#   bash swebench_pro/run_smoke.sh                                       # defaults
-#   bash swebench_pro/run_smoke.sh --model openai/gpt-5-nano
-#   bash swebench_pro/run_smoke.sh --model openai/gpt-5-nano \
-#                                  --instances swebench_pro/data/smoke.jsonl \
-#                                  --n-instances 5 --workers 2 --eval-workers 4
-#   bash swebench_pro/run_smoke.sh --no-eval                             # skip eval
-#   bash swebench_pro/run_smoke.sh --eval-only --rundir swebench_pro/results/smoke_<ts>
-#   bash swebench_pro/run_smoke.sh --gold-eval                           # eval gold patches (sanity)
+#   bash swebench_pro/run.sh --model openai/gpt-5-nano --n 1
+#   bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5-20251001 \
+#                            --n 100 --workers 4 --eval-workers 8 \
+#                            --output swebench_pro/results/haiku_n100
+#   bash swebench_pro/run.sh --model openai/gpt-5-nano --n 50  # resume / extend a prior run
 #
-# Env-var defaults (CLI flag wins): MODEL, CONFIG, INSTANCES, N_INSTANCES,
+#   bash swebench_pro/run.sh --no-eval                          # inference only
+#   bash swebench_pro/run.sh --eval-only --rundir <path>        # eval an existing rundir
+#   bash swebench_pro/run.sh --gold-eval                        # grade gold patches (sanity check)
+#
+# Notes on resumability:
+#   - Sampling is "shuffle-then-slice" with a fixed seed (default 100).
+#     With the same seed, --n=20 is a strict prefix of --n=100, so an
+#     interrupted run resumes exactly. To force fresh sampling, pass
+#     --seed <n> with a different value (and a different --output).
+#   - Resume is keyed on the instance ids already in <output>/preds.json.
+#
+# Env-var defaults (CLI flag wins): MODEL, CONFIG, INSTANCES, N, SEED,
 # WORKERS, EVAL_WORKERS, OUTPUT, DOCKERHUB_USERNAME
 
 set -euo pipefail
@@ -34,13 +42,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODEL="${MODEL:-anthropic/claude-haiku-4-5-20251001}"
-INSTANCES="${INSTANCES:-swebench_pro/data/smoke_1.jsonl}"
+INSTANCES="${INSTANCES:-swebench_pro/data/swebench_pro_full.jsonl}"
 WORKERS="${WORKERS:-1}"
-N_INSTANCES="${N_INSTANCES:-0}"
+N="${N:-0}"                                  # 0 means "all"
+SEED="${SEED:-100}"
 EVAL_WORKERS="${EVAL_WORKERS:-1}"
 DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-jefzda}"
-TS="$(date +%Y%m%d_%H%M%S)"
-OUTPUT="${OUTPUT:-swebench_pro/results/smoke_${TS}}"
+OUTPUT="${OUTPUT:-}"                         # default derived from model + N below
 CONFIG="${CONFIG:-swebench_pro/configs/swebench_pro_vanilla.yaml}"
 
 DO_INFER=1
@@ -58,7 +66,8 @@ while [ $# -gt 0 ]; do
         --model)              MODEL="$2"; shift 2 ;;
         --config)             CONFIG="$2"; shift 2 ;;
         --instances)          INSTANCES="$2"; shift 2 ;;
-        --n-instances)        N_INSTANCES="$2"; shift 2 ;;
+        --n|--num-samples)    N="$2"; shift 2 ;;
+        --seed)               SEED="$2"; shift 2 ;;
         --workers)            WORKERS="$2"; shift 2 ;;
         --eval-workers)       EVAL_WORKERS="$2"; shift 2 ;;
         --output)             OUTPUT="$2"; shift 2 ;;
@@ -74,14 +83,32 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if [ "$DO_INFER" -eq 0 ] && [ -n "$RUNDIR_OVERRIDE" ]; then
+# Build a sensible default output dir if the user didn't pass --output.
+# Format: results/<model_slug>_n<N>[_seed<S>]
+if [ -z "$OUTPUT" ]; then
+    if [ "$DO_INFER" -eq 0 ] && [ -n "$RUNDIR_OVERRIDE" ]; then
+        OUTPUT="$RUNDIR_OVERRIDE"
+    else
+        slug="${MODEL//\//_}"; slug="${slug//:/_}"
+        if [ "$N" -gt 0 ]; then
+            OUTPUT="swebench_pro/results/${slug}_n${N}"
+        else
+            OUTPUT="swebench_pro/results/${slug}_all"
+        fi
+        if [ "$SEED" != "100" ]; then
+            OUTPUT="${OUTPUT}_seed${SEED}"
+        fi
+    fi
+elif [ "$DO_INFER" -eq 0 ] && [ -n "$RUNDIR_OVERRIDE" ]; then
     OUTPUT="$RUNDIR_OVERRIDE"
 fi
 
-echo "Smoke run config:"
+echo "Run config:"
 echo "  model         = $MODEL"
 echo "  config        = $CONFIG"
-echo "  instances     = $INSTANCES (limit=$N_INSTANCES)"
+echo "  instances     = $INSTANCES"
+echo "  N (samples)   = ${N:-all}"
+echo "  seed          = $SEED"
 echo "  workers       = $WORKERS"
 echo "  output        = $OUTPUT"
 echo "  do_infer      = $DO_INFER"
@@ -92,11 +119,11 @@ echo "  dockerhub_user= $DOCKERHUB_USERNAME"
 
 mkdir -p "$OUTPUT"
 
-# 1. Inference.
+# 1. Inference (resumable).
 if [ "$DO_INFER" -eq 1 ]; then
     EXTRA=()
-    if [ "$N_INSTANCES" -gt 0 ]; then
-        EXTRA+=(--limit "$N_INSTANCES")
+    if [ "$N" -gt 0 ]; then
+        EXTRA+=(--limit "$N")
     fi
     python swebench_pro/run_mini_on_pro.py \
         --model "$MODEL" \
@@ -104,9 +131,10 @@ if [ "$DO_INFER" -eq 1 ]; then
         --instances "$INSTANCES" \
         --output "$OUTPUT" \
         --workers "$WORKERS" \
+        --seed "$SEED" \
         "${EXTRA[@]}"
 else
-    echo "[run_smoke] skipping inference (--eval-only / --gold-eval)"
+    echo "[run] skipping inference (--eval-only / --gold-eval)"
 fi
 
 # 2. Evaluation.
@@ -117,7 +145,7 @@ if [ "$DO_EVAL" -eq 1 ] || [ "$GOLD_EVAL" -eq 1 ]; then
     fi
     bash swebench_pro/scripts/run_eval.sh "$OUTPUT" "${EVAL_FLAGS[@]}"
 else
-    echo "[run_smoke] skipping evaluation (--no-eval)"
+    echo "[run] skipping evaluation (--no-eval)"
 fi
 
 echo
@@ -132,17 +160,13 @@ if [ "$DO_EVAL" -eq 1 ] || [ "$GOLD_EVAL" -eq 1 ]; then
     echo "  eval/instance_<bare_id>/mini_stderr.log          -- test-run stderr"
     echo "  eval/instance_<bare_id>/mini_output.json         -- per-test PASSED/FAILED"
     echo "  eval/instance_<bare_id>/mini_patch.diff          -- patch handed to git apply"
-    echo "  eval/instance_<bare_id>/mini_entryscript.sh      -- script run inside the test container"
+    echo "  eval/instance_<bare_id>/mini_entryscript.sh      -- script run inside test container"
     echo
     echo "Note: <bare_id> is the instance id WITHOUT the leading 'instance_' prefix"
-    echo "      (the eval dir uses the full prefixed id; the trajectory dir uses the bare id)."
-    echo "      Concrete example for this run:"
+    echo "      (the eval dir uses the prefixed id; the trajectory dir uses the bare id)."
     if [ -f "$OUTPUT/eval/eval_results.json" ]; then
-        first_iid="$(python -c 'import json,sys;d=json.load(open(sys.argv[1]));print(next(iter(d)))' "$OUTPUT/eval/eval_results.json" 2>/dev/null || true)"
-        first_resolved="$(python -c 'import json,sys;d=json.load(open(sys.argv[1]));print(next(iter(d.values())))' "$OUTPUT/eval/eval_results.json" 2>/dev/null || true)"
-        if [ -n "${first_iid:-}" ]; then
-            echo "        $OUTPUT/eval/$first_iid/"
-            echo "        resolved = $first_resolved"
-        fi
+        n_total="$(python -c 'import json,sys;d=json.load(open(sys.argv[1]));print(len(d))' "$OUTPUT/eval/eval_results.json" 2>/dev/null || echo "?")"
+        n_resolved="$(python -c 'import json,sys;d=json.load(open(sys.argv[1]));print(sum(d.values()))' "$OUTPUT/eval/eval_results.json" 2>/dev/null || echo "?")"
+        echo "      This run: $n_resolved / $n_total resolved."
     fi
 fi
