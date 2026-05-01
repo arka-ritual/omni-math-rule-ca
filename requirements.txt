@@ -44,3 +44,31 @@ numpy>=1.24               # via evaluation/utils.py
 # install regardless. ---------------------------------------------------
 timeout-decorator>=0.5
 Pebble>=5.0
+
+# --- SWE-Bench Pro driver (`swebench_pro/run_mini_on_pro.py`) ----------
+# `mini-swe-agent` provides the agent loop, the docker environment
+# wrapper, and the trajectory format. It pulls litellm + openai + the
+# rest of the chat SDKs as transitive deps, so installing it can pin
+# `openai` to a slightly older version than what `inference/` uses; if
+# something in inference/providers/openai_provider.py breaks, that's the
+# usual culprit. Tested with mini-swe-agent 2.2.8.
+#
+# REQUIRES Docker on the host (https://docs.docker.com/engine/install/).
+# Pro instances are pulled from `docker.io/jefzda/sweap-images:*`; the
+# first run on a fresh machine will pull GBs of images per instance —
+# allow time and disk space.
+mini-swe-agent>=2.2
+
+# Already pulled in by mini-swe-agent, but listed explicitly because
+# evaluation/ also uses datasets and we want the floor pinned.
+datasets>=4.5
+pyyaml>=6.0
+
+# --- SWE-Bench Pro official evaluation harness ------------------------
+# `swebench_pro/scripts/run_eval.sh` clones the upstream
+# `scaleapi/SWE-bench_Pro-os` repo into `swebench_pro/external/` and
+# invokes its `swe_bench_pro_eval.py` with `--use_local_docker`. That
+# script needs `docker` (Python SDK) and `pandas`. `modal` is NOT needed
+# because we only use the local-docker path.
+docker>=6.0               # tested with 7.x; Python Docker SDK
+pandas>=2.0
