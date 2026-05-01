@@ -8,17 +8,24 @@
 # post-hoc from the intervention-1 results via apply_intervention4.py
 # (no separate model run).
 #
+# Models (litellm slugs — same set as inference/run_interventions.sh):
+#   - anthropic/claude-haiku-4-5
+#   - gemini/gemini-3.1-flash-lite
+#   - openai/gpt-5.4-nano
+#   - openrouter/qwen/qwen3.5-397b-instruct
+#   - openrouter/deepseek/deepseek-v4-pro
+#
 # Each cell writes to its own rundir under
 # `swebench_pro/results/<slug>/`, so resumes are independent.
 #
 # Usage:
 #   bash swebench_pro/run_interventions.sh                  # all models, all cells
-#   bash swebench_pro/run_interventions.sh --model openai/gpt-5-nano
-#   bash swebench_pro/run_interventions.sh --model openai/gpt-5-nano \
+#   bash swebench_pro/run_interventions.sh --model openai/gpt-5.4-nano
+#   bash swebench_pro/run_interventions.sh --model openai/gpt-5.4-nano \
 #       --intervention 1 --config quant_25
 #
 #   N=10 WORKERS=4 EVAL_WORKERS=8 \
-#       bash swebench_pro/run_interventions.sh --model anthropic/claude-haiku-4-5-20251001
+#       bash swebench_pro/run_interventions.sh --model anthropic/claude-haiku-4-5
 #
 # CLI filters (each one accepted multiple times, repeated values combined):
 #   --model <slug>            # restrict to this model (default: all in MODELS)
@@ -53,13 +60,16 @@ CONFIG="${CONFIG:-swebench_pro/configs/swebench_pro_vanilla.yaml}"
 RESULTS_ROOT="${RESULTS_ROOT:-swebench_pro/results}"
 
 # ---- sweep matrix ------------------------------------------------------
-# Models (litellm slugs).
+# Models (litellm slugs). Mirrors the math-side set in
+# inference/run_interventions.sh:
+#   claude-haiku-4-5, gemini-3.1-flash-lite, gpt-5.4-nano,
+#   qwen3.5-397b, deepseek-v4-pro.
 ALL_MODELS=(
-    "anthropic/claude-haiku-4-5-20251001"
-    "openai/gpt-5-nano"
-    "gemini/gemini-2.5-flash-lite"
-    "openrouter/qwen/qwen3-72b-instruct"
-    "openrouter/deepseek/deepseek-v3"
+    "anthropic/claude-haiku-4-5"
+    "gemini/gemini-3.1-flash-lite"
+    "openai/gpt-5.4-nano"
+    "openrouter/qwen/qwen3.5-397b-instruct"
+    "openrouter/deepseek/deepseek-v4-pro"
 )
 
 # Prompt configs. Format:  "<key>:<prompt_config>:<rc>:<ri>:<ra>"
