@@ -66,9 +66,9 @@ RESULTS_ROOT="${RESULTS_ROOT:-swebench_pro/results}"
 #   qwen3.5-397b, deepseek-v4-pro.
 ALL_MODELS=(
     "anthropic/claude-haiku-4-5"
-    "gemini/gemini-3.1-flash-lite"
+    "gemini/gemini-3.1-flash-lite-preview"
     "openai/gpt-5.4-nano"
-    "openrouter/qwen/qwen3.5-397b-instruct"
+    "openrouter/qwen/qwen3.5-397b-a17b"
     "openrouter/deepseek/deepseek-v4-pro"
 )
 
