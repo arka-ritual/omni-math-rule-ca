@@ -54,7 +54,15 @@ STATE_DIR = "/tmp/ca_state"
 
 _SUBMIT_PRELIMINARY = r"""#!/bin/bash
 # submit_preliminary_patch -- step 1 of intervention 2 / 3.
-# Captures git diff, advances state, and prints the rubric-reveal block.
+# Captures git diff, advances state, and prints next-step guidance.
+#
+# The rubric-reveal block (the "consequences" paragraph + finalize/abstain
+# directive) is emitted differently per intervention:
+#   - intervention 3: revealed here, immediately after the diff (model goes
+#     straight from preliminary patch to finalize/abstain).
+#   - intervention 2: NOT revealed here. The model is asked for confidence
+#     first; the rubric is shown only as the observation of submit_confidence,
+#     so the confidence value is elicited stake-independently.
 set -e
 
 state_dir="__STATE_DIR__"
@@ -77,8 +85,9 @@ git diff --cached -- . ':(exclude)*.pyc' ':(exclude)patch.txt' > "$patch_file" |
 
 # State -> review (intervention 3 skips confidence, so we set "finalize"
 # directly when CA_INTERVENTION=3; otherwise "confidence").
+intv="${CA_INTERVENTION:-1}"
 next_phase="confidence"
-if [ "${CA_INTERVENTION:-1}" = "3" ]; then
+if [ "$intv" = "3" ]; then
     next_phase="finalize"
 fi
 printf '{"phase":"%s"}\n' "$next_phase" > "$state_file"
@@ -89,11 +98,18 @@ echo "<diff>"
 cat "$patch_file"
 echo "</diff>"
 echo
-if [ -f "$reveal_file" ]; then
-    cat "$reveal_file"
+if [ "$intv" = "3" ]; then
+    if [ -f "$reveal_file" ]; then
+        cat "$reveal_file"
+    else
+        # Fallback (host should have written reveal.txt at install time).
+        echo "You have produced a candidate patch. Decide whether to finalize_submission or exit_abstain."
+    fi
 else
-    # Fallback (host should have written reveal.txt at install time).
-    echo "You have produced a candidate patch. Decide whether to finalize_submission or exit_abstain."
+    # Intervention 2: stakes are revealed after submit_confidence, not here.
+    echo "You have produced a candidate patch. Next, state your confidence"
+    echo "that this patch is correct by running:"
+    echo "  submit_confidence --value <number in [0, 1]>"
 fi
 """
 
@@ -101,11 +117,18 @@ fi
 _SUBMIT_CONFIDENCE = r"""#!/bin/bash
 # submit_confidence --value <float in [0,1]>
 # Records the model's stated confidence, advances state to "finalize".
+#
+# For intervention 2, this is also where the rubric-reveal block is
+# emitted (the model stated its confidence stake-independently; only
+# now does it learn the consequences and decide whether to submit).
+# For intervention 1, the rubric is already in the system prompt, so
+# we just acknowledge the confidence value.
 set -e
 
 state_dir="__STATE_DIR__"
 state_file="${state_dir}/state.json"
 log_file="${state_dir}/confidence.jsonl"
+reveal_file="${state_dir}/reveal.txt"
 mkdir -p "$state_dir"
 
 value=""
@@ -142,7 +165,14 @@ if [ "$phase" = "confidence" ] || [ -z "$phase" ] || [ "$phase" = "solve" ]; the
     printf '{"phase":"finalize"}\n' > "$state_file"
 fi
 
-echo "Confidence ${value} recorded. Call finalize_submission or exit_abstain next."
+intv="${CA_INTERVENTION:-1}"
+echo "Confidence ${value} recorded."
+if [ "$intv" = "2" ] && [ -f "$reveal_file" ]; then
+    echo
+    cat "$reveal_file"
+else
+    echo "Call finalize_submission or exit_abstain next."
+fi
 """
 
 

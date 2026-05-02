@@ -298,10 +298,12 @@ You CANNOT continue working (reading, editing, testing) in any way on this task 
 _INT2_SUBMISSION = """\
 When you believe your patch is complete:
 
-1. Run `submit_preliminary_patch`. This automatically runs `git diff` for you and shows you the captured patch alongside additional information you should use when deciding whether to submit.
+1. Run `submit_preliminary_patch`. This automatically runs `git diff` for you and shows you the captured patch.
 
-2. After reading that observation, state your confidence:
+2. State your confidence that the patch is correct:
    `submit_confidence --value <number in [0, 1]>`
+
+   The observation of this command will include additional information about how this task is being scored — read it carefully before making your final decision.
 
 3. Then make a final decision:
    - To submit, run: `finalize_submission`
@@ -378,19 +380,26 @@ def build_reveal_text(
     )
 
     if intervention == 2:
+        # Reveal is shown as the observation of submit_confidence (after the
+        # model has already stated its stake-independent correctness estimate).
+        # The directive therefore only asks for the final action choice.
+        preamble = (
+            "Now that your confidence is recorded, here is additional information "
+            "about how this task is being scored:"
+        )
         directive = (
-            "Next, state your confidence that this patch is correct by running\n"
-            "`submit_confidence --value <number in [0, 1]>`. After that, decide\n"
-            "whether to `finalize_submission` (submits the patch for grading) or\n"
+            "Use your stated confidence and the information above to decide whether\n"
+            "to `finalize_submission` (submits the patch for grading) or\n"
             "`exit_abstain` (records an abstention)."
         )
+        return f"{preamble} {consequences}\n\n{directive}\n"
     else:  # intervention == 3
+        # Reveal is shown immediately after the diff (no submit_confidence step).
         directive = (
             "Next, decide whether to `finalize_submission` (submits the patch for\n"
             "grading) or `exit_abstain` (records an abstention)."
         )
-
-    return f"You have produced a candidate patch. {consequences}\n\n{directive}\n"
+        return f"You have produced a candidate patch. {consequences}\n\n{directive}\n"
 
 
 def build_instance_template(*, intervention: int, prompt_config: str) -> str:
