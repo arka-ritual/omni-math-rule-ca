@@ -30,22 +30,97 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from minisweagent.exceptions import InterruptAgentFlow
+from minisweagent.exceptions import InterruptAgentFlow, LimitsExceeded
 from minisweagent.run.benchmarks.swebench import ProgressTrackingAgent
 
 logger = logging.getLogger("minisweagent")
 
 
 class ResumableProgressAgent(ProgressTrackingAgent):
-    def __init__(self, *args, extra_save_info: dict[str, Any] | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        extra_save_info: dict[str, Any] | None = None,
+        loop_threshold: int = 10,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self._extra_save_info: dict[str, Any] = dict(extra_save_info or {})
+        # Loop detector: if the last `loop_threshold` assistant turns issued
+        # the exact same action sequence (commands compared as stripped
+        # strings), abort with exit_status='LoopDetected'. Set to 0 to
+        # disable. Cheap weak models (e.g. gemini-3.1-flash-lite-preview)
+        # routinely burn 200+ steps repeating the same `cat <<EOF > foo`
+        # or `sed -n '...'` call; without this they hit step_limit and
+        # waste compute / API spend. See the looping-trajectories analysis
+        # in the May 2026 swebench_pro investigation.
+        self._loop_threshold: int = int(loop_threshold)
 
     def set_extra_save_info(self, info: dict[str, Any]) -> None:
         """Merge `info` into the dict that gets written into every save.
         Use this from the driver to push live state (e.g. confidence_log)
         into the on-disk trajectory mid-run."""
         self._extra_save_info.update(info)
+
+    def _last_n_action_seqs_identical(self, n: int) -> tuple[bool, tuple[str, ...] | None]:
+        """Walk back through `self.messages` collecting the last `n` assistant
+        turns that produced at least one action. Return (True, seq) if all
+        `n` of them issued the exact same action sequence (stripped command
+        strings); (False, None) otherwise.
+
+        Skips assistant turns that produced zero actions (e.g. format-error
+        retries) so an interleaved stutter doesn't reset the streak; but
+        returns False if there aren't `n` action-bearing assistant turns yet.
+        """
+        if n <= 0:
+            return False, None
+        seqs: list[tuple[str, ...]] = []
+        for msg in reversed(self.messages):
+            if msg.get("role") != "assistant":
+                continue
+            actions = (msg.get("extra") or {}).get("actions") or []
+            if not actions:
+                continue
+            seq = tuple((a.get("command") or "").strip() for a in actions)
+            seqs.append(seq)
+            if len(seqs) == n:
+                break
+        if len(seqs) < n:
+            return False, None
+        first = seqs[0]
+        if all(s == first for s in seqs):
+            return True, first
+        return False, None
+
+    def query(self) -> dict:
+        """Pre-check for action-loop, then defer to the upstream cost/step
+        limit check + actual model call."""
+        if self._loop_threshold > 0:
+            looped, seq = self._last_n_action_seqs_identical(self._loop_threshold)
+            if looped:
+                preview = (seq[0] if seq else "")[:120].replace("\n", "\\n")
+                logger.warning(
+                    f"[loop_detector] Same action repeated "
+                    f"{self._loop_threshold} times in a row; aborting. "
+                    f"Repeated cmd preview: {preview!r}"
+                )
+                raise LimitsExceeded(
+                    {
+                        "role": "exit",
+                        "content": (
+                            f"LoopDetected: identical action issued "
+                            f"{self._loop_threshold} consecutive turns; "
+                            f"aborting before step_limit."
+                        ),
+                        "extra": {
+                            "exit_status": "LoopDetected",
+                            "submission": "",
+                            "loop_repeat_count": self._loop_threshold,
+                            "loop_action_preview": (seq[0] if seq else "")[:500],
+                        },
+                    }
+                )
+        return super().query()
 
     def serialize(self, *extra_dicts) -> dict:
         runtime = {
