@@ -25,6 +25,16 @@ substring "boxed" anywhere — including in our prompt's literal
 sequence (backslash + 'boxed' + '{') and discards empty boxes (e.g. the
 model echoing "\\boxed{}" from the instructions).
 
+Reasoning-trace handling: open-weight reasoning models (Qwen 3.5 9B,
+Qwen 3.5 397B A17B, DeepSeek V4 Pro) emit a `<think>...</think>` block
+with tentative scratch work, followed by the committed completion.
+The scratch block often contains "\\boxed{UNSURE}" hypotheticals that
+the model ultimately rejects — which the previous evaluator saw and
+classified as `incorrect_mixed`. We now strip everything up to and
+including the last `</think>` before extracting boxes and searching
+for abstain markers, so only the committed completion is scored.
+Base/instruct models (no `<think>` tags) are unaffected.
+
 Usage:
     python evaluation/math_eval_cautious.py \
         --data_file inference/results/GPT-5.2_cautious.jsonl \
@@ -59,6 +69,18 @@ _ABSTAIN_MARKER_RE = re.compile(
 # echoes the instruction).
 _BOXED_OPEN_RE = re.compile(r"\\boxed\{")
 
+# Reasoning trace delimiter for open-weight reasoning models
+# (Qwen 3.5 9B / 397B A17B, DeepSeek V4 Pro, etc.). The completion is
+# emitted after the *last* </think> token; any tentative \boxed{...}
+# inside the reasoning block must be ignored.
+#
+# We anchor solely on the *closing* tag. The opening <think> is often
+# part of the chat template's assistant prefix (Qwen 3.5 9B in particular
+# emits only </think> — the open tag is injected by the template and
+# never appears in the streamed response), so requiring <think> here
+# would miss those cases.
+_THINK_CLOSE_RE = re.compile(r"</think\s*>", re.IGNORECASE)
+
 # Truncation reasons: any of these in the inference item's `finish_reason`
 # field signal that the response was cut by the max-token budget, in
 # which case a missing \boxed{} should be classified as `indeterminate`
@@ -67,6 +89,35 @@ _TRUNCATED_FINISH_REASONS = {
     "length", "max_tokens", "max_output_tokens", "model_length",
     "MAX_TOKENS",
 }
+
+
+def strip_reasoning(text: str) -> str:
+    """Return the committed completion (the text after the last
+    `</think>`).
+
+    Behaviour:
+
+      * ``<anything></think><completion>``  -> ``<completion>``
+        (standard reasoning-model output; the opening ``<think>`` may or
+        may not be present — Qwen 3.5 9B's chat template, for example,
+        injects the opening tag into the assistant prefix so only the
+        closing tag shows up in the streamed generation).
+      * No ``</think>`` anywhere              -> the text unchanged
+        (base models, non-reasoning instruct models like Claude / Gemini
+        / GPT-5.4-nano / Gemma 4, **and** reasoning responses that were
+        truncated before reaching ``</think>`` — the latter are indirectly
+        flagged via ``finish_reason == 'length'`` and end up
+        classified as `indeterminate`).
+
+    Case-insensitive. Tolerant of whitespace inside the tag
+    (``</think >``). If multiple ``</think>`` tokens appear, the **last**
+    one wins — anything still tentative is discarded."""
+    if not text:
+        return text
+    closes = list(_THINK_CLOSE_RE.finditer(text))
+    if closes:
+        return text[closes[-1].end():]
+    return text
 
 
 def has_explicit_abstain_marker(text: str) -> bool:
@@ -131,7 +182,11 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
     Returns a dict with keys: score, category, all_boxed, pred, gt.
     """
     generation = item.get("model_generation", "") or ""
-    all_boxed = extract_all_boxed(generation)
+    # For reasoning models, discard the <think>...</think> scratch block
+    # so tentative "\boxed{UNSURE}" hypotheticals in the reasoning don't
+    # contaminate the classification. See `strip_reasoning` docstring.
+    scored_text = strip_reasoning(generation)
+    all_boxed = extract_all_boxed(scored_text)
     truncated = is_truncated(item)
 
     # Ground truth: use 'answer' field directly (Omni-MATH-Rule format)
@@ -150,7 +205,7 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
 
     if not all_boxed:
         # No (valid, non-empty) \boxed{...} at all. Three sub-cases:
-        if has_explicit_abstain_marker(generation):
+        if has_explicit_abstain_marker(scored_text):
             return {
                 "score": False,
                 "category": "abstained",

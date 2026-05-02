@@ -3,6 +3,15 @@
 Source: `evaluation/output/interventions/*/cautious_metrics.json`. `acc_attempted` = `num_correct / num_attempted` (%); `abst` = `num_abstained`, `indet` = `num_indeterminate`, `mixed` = `num_incorrect_mixed`, `n` = `num_total`.
 
 Legend: c/i/a/m/d = correct/incorrect/abstained/mixed/indeterminate
+
+> **Update:** `qwen3.5-397b` and `deepseek-v4-pro` tables below were re-scored
+> with the reasoning-trace-aware cautious evaluator (everything up to and
+> including the last `</think>` token is stripped before `\boxed{...}` parsing).
+> This removes the large `mixed` counts caused by tentative `\boxed{UNSURE}`
+> inside the models' thinking blocks and surfaces the *committed* answer
+> written after `</think>`. `claude-haiku-4-5` and `gpt-5.4-nano` do not emit
+> `</think>` markers and are unaffected.
+
 ## claude-haiku-4-5
 
 | Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
@@ -25,18 +34,18 @@ Legend: c/i/a/m/d = correct/incorrect/abstained/mixed/indeterminate
 
 | Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
 |---|---|---|---|---|
-| 1 — single-turn multi-step | 50.0% (c47/i8/a6/m39/d0, n=100) | 60.8% (c59/i9/a3/m29/d0, n=100) | 42.4% (c42/i9/a1/m48/d0, n=100) | 40.4% (c38/i10/a6/m46/d0, n=100) |
-| 2 — multi-turn | 29.0% (c27/i3/a7/m63/d0, n=100) | 29.2% (c28/i2/a4/m66/d0, n=100) | 35.8% (c34/i3/a5/m58/d0, n=100) | 27.5% (c25/i3/a4/m63/d0, n=95) |
-| 3 — multi-turn no-conf | 50.0% (c49/i5/a2/m44/d0, n=100) | 42.9% (c42/i4/a2/m52/d0, n=100) | 47.4% (c46/i4/a3/m47/d0, n=100) | 54.7% (c52/i5/a3/m38/d0, n=98) |
+| 1 — single-turn multi-step | 86.8% (c79/i12/a9/m0/d0, n=100) | 86.2% (c81/i11/a6/m2/d0, n=100) | 86.7% (c85/i11/a2/m2/d0, n=100) | 79.8% (c75/i15/a6/m4/d0, n=100) |
+| 2 — multi-turn | 94.0% (c78/i4/a17/m1/d0, n=100) | 94.0% (c78/i5/a17/m0/d0, n=100) | 87.6% (c78/i5/a11/m6/d0, n=100) | 89.4% (c76/i7/a10/m2/d0, n=95) |
+| 3 — multi-turn no-conf | 88.4% (c84/i10/a5/m1/d0, n=100) | 91.3% (c84/i8/a8/m0/d0, n=100) | 92.3% (c84/i7/a9/m0/d0, n=100) | 91.4% (c85/i8/a5/m0/d0, n=98) |
 | 4 — post-hoc τ(λ) | 92.8% (c64/i5/a31/m0/d0, n=100) | 90.2% (c37/i4/a59/m0/d0, n=100) | 92.7% (c51/i4/a45/m0/d0, n=100) | 90.2% (c46/i5/a49/m0/d0, n=100) |
 
 ## deepseek-v4-pro
 
 | Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
 |---|---|---|---|---|
-| 1 — single-turn multi-step | 86.7% (c78/i4/a5/m8/d5, n=100) | 77.0% (c67/i1/a12/m19/d1, n=100) | 54.3% (c50/i2/a1/m40/d7, n=100) | 62.1% (c54/i2/a6/m31/d6, n=99) |
-| 2 — multi-turn | 44.9% (c44/i0/a2/m54/d0, n=100) | 31.2% (c30/i0/a3/m66/d1, n=100) | 20.6% (c20/i0/a3/m77/d0, n=100) | 31.2% (c29/i1/a3/m63/d0, n=96) |
-| 3 — multi-turn no-conf | 52.5% (c52/i5/a1/m42/d0, n=100) | 62.8% (c59/i5/a6/m30/d0, n=100) | 34.4% (c33/i1/a4/m62/d0, n=100) | 38.1% (c37/i3/a1/m57/d0, n=98) |
+| 1 — single-turn multi-step | 94.3% (c83/i5/a6/m0/d6, n=100) | 96.5% (c83/i3/a9/m0/d5, n=100) | 95.6% (c86/i4/a3/m0/d7, n=100) | 94.0% (c78/i4/a9/m1/d7, n=99) |
+| 2 — multi-turn | 91.0% (c81/i8/a11/m0/d0, n=100) | 95.0% (c76/i4/a18/m0/d2, n=100) | 94.3% (c82/i5/a12/m0/d1, n=100) | 95.1% (c77/i3/a14/m1/d1, n=96) |
+| 3 — multi-turn no-conf | 92.0% (c81/i7/a12/m0/d0, n=100) | 89.3% (c75/i7/a16/m2/d0, n=100) | 92.9% (c78/i4/a16/m2/d0, n=100) | 91.0% (c81/i6/a8/m2/d1, n=98) |
 | 4 — post-hoc τ(λ) | 93.7% (c59/i4/a37/m0/d0, n=100) | 89.8% (c44/i5/a51/m0/d0, n=100) | 88.5% (c46/i6/a48/m0/d0, n=100) | 97.1% (c33/i1/a65/m0/d0, n=99) |
 
 ## Abstention rate (`num_abstained / num_total`)
@@ -63,16 +72,16 @@ Legend: c/i/a/m/d = correct/incorrect/abstained/mixed/indeterminate
 
 | Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
 |---|---|---|---|---|
-| 1 — single-turn multi-step | 6.0% (6/100) | 3.0% (3/100) | 1.0% (1/100) | 6.0% (6/100) |
-| 2 — multi-turn | 7.0% (7/100) | 4.0% (4/100) | 5.0% (5/100) | 4.2% (4/95) |
-| 3 — multi-turn no-conf | 2.0% (2/100) | 2.0% (2/100) | 3.0% (3/100) | 3.1% (3/98) |
+| 1 — single-turn multi-step | 9.0% (9/100) | 6.0% (6/100) | 2.0% (2/100) | 6.0% (6/100) |
+| 2 — multi-turn | 17.0% (17/100) | 17.0% (17/100) | 11.0% (11/100) | 10.5% (10/95) |
+| 3 — multi-turn no-conf | 5.0% (5/100) | 8.0% (8/100) | 9.0% (9/100) | 5.1% (5/98) |
 | 4 — post-hoc τ(λ) | 31.0% (31/100) | 59.0% (59/100) | 45.0% (45/100) | 49.0% (49/100) |
 
 ### deepseek-v4-pro
 
 | Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
 |---|---|---|---|---|
-| 1 — single-turn multi-step | 5.0% (5/100) | 12.0% (12/100) | 1.0% (1/100) | 6.1% (6/99) |
-| 2 — multi-turn | 2.0% (2/100) | 3.0% (3/100) | 3.0% (3/100) | 3.1% (3/96) |
-| 3 — multi-turn no-conf | 1.0% (1/100) | 6.0% (6/100) | 4.0% (4/100) | 1.0% (1/98) |
+| 1 — single-turn multi-step | 6.0% (6/100) | 9.0% (9/100) | 3.0% (3/100) | 9.1% (9/99) |
+| 2 — multi-turn | 11.0% (11/100) | 18.0% (18/100) | 12.0% (12/100) | 14.6% (14/96) |
+| 3 — multi-turn no-conf | 12.0% (12/100) | 16.0% (16/100) | 16.0% (16/100) | 8.2% (8/98) |
 | 4 — post-hoc τ(λ) | 37.0% (37/100) | 51.0% (51/100) | 48.0% (48/100) | 65.7% (65/99) |

@@ -1,7 +1,7 @@
 {
   "num_total": 99,
-  "num_abstained": 24,
-  "num_indeterminate": 4,
+  "num_abstained": 28,
+  "num_indeterminate": 0,
   "num_attempted": 71,
   "num_correct": 5,
   "num_incorrect_standard": 58,
