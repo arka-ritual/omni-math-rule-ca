@@ -61,20 +61,20 @@ python swebench_pro/scripts/build_dataset.py    # builds data/swebench_pro_full.
 ## Running
 
 ```bash
-# 1 instance against gpt-5-nano (smoke check):
-bash swebench_pro/run.sh --model openai/gpt-5-nano --n 1
+# 1 instance against gpt-5.4-nano (smoke check):
+bash swebench_pro/run.sh --model openai/gpt-5.4-nano --n 1
 
 # 100 instances against Claude Haiku 4.5, 4 parallel agents,
 # 8 parallel eval workers:
-bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5-20251001 \
+bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5 \
     --n 100 --workers 4 --eval-workers 8
 
 # All 731 instances:
-bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5-20251001 \
+bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5 \
     --workers 8 --eval-workers 16
 
 # Inference only (skip the Docker grader):
-bash swebench_pro/run.sh --model openai/gpt-5-nano --n 5 --no-eval
+bash swebench_pro/run.sh --model openai/gpt-5.4-nano --n 5 --no-eval
 
 # Grade an existing rundir (skip inference):
 bash swebench_pro/run.sh --eval-only --rundir swebench_pro/results/<dir> \
@@ -83,6 +83,41 @@ bash swebench_pro/run.sh --eval-only --rundir swebench_pro/results/<dir> \
 # Sanity-check the grader against the released gold patches:
 bash swebench_pro/run.sh --gold-eval --eval-workers 8
 ```
+
+### Concurrency (`--workers` / `--eval-workers`)
+
+Both the inference driver and the eval grader run instances in parallel
+via thread pools:
+
+| Flag | What scales | Default |
+|---|---|---|
+| `--workers N` | **Inference**: parallel agent loops. Each agent runs in its own Docker container (each Pro instance uses a different ~1–2 GB image), and each makes independent model-API calls. Pred/progress writes are lock-protected; per-instance state is isolated, so concurrent runs don't interfere with each other's resume logic. | 1 |
+| `--eval-workers N` | **Grading**: parallel `git apply` + test runs in the official SWE-bench Pro docker eval. | 1 |
+
+The same flags work on the sweep orchestrator (`run_interventions.sh`)
+and propagate down into each cell's `run.sh` call.
+
+```bash
+# 100 instances, 8 agents in parallel, 16 eval workers in parallel:
+bash swebench_pro/run.sh --model anthropic/claude-haiku-4-5 \
+    --n 100 --workers 8 --eval-workers 16
+
+# Full sweep (5 models × 3 interventions × 4 configs), 4 agents per cell:
+WORKERS=4 EVAL_WORKERS=8 bash swebench_pro/run_interventions.sh
+```
+
+Practical ceilings:
+
+- **Disk / RAM**: each live container holds ~1–2 GB resident; first-use
+  image pulls can be several GB each. For a 10+ worker run, expect to
+  need ~20 GB free disk for Docker layers.
+- **API rate limits**: each worker makes one in-flight model call at a
+  time. Anthropic/OpenAI tiered limits are usually the bottleneck above
+  ~8 workers; bump your tier or drop `--workers` if you see
+  `RateLimitError` retries in `minisweagent.log`.
+- **litellm hangs**: one stuck worker can't freeze the others; the other
+  workers keep advancing and the stuck one is bounded by `--api-timeout`
+  (default 600 s).
 
 ### Resumability
 
