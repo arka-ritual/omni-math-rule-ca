@@ -48,12 +48,8 @@ build/
 
 # SWE-Bench Pro mini-swe-agent run outputs (multi-GB trajectories,
 # preds.json, logs). Configs / data / scripts are tracked, results are not.
-# swebench_pro/results/
+swebench_pro/results/
 
 # Cloned upstream SWE-bench Pro evaluation repo (set up by
 # swebench_pro/scripts/setup_eval_repo.sh).
 swebench_pro/external/
-workspace/
-mini_entryscript.sh
-mini_output.json
-mini_patch.diff

@@ -55,6 +55,7 @@ DO_EVAL="${DO_EVAL:-1}"
 GOLD_EVAL="${GOLD_EVAL:-0}"
 DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-jefzda}"
 API_TIMEOUT="${API_TIMEOUT:-600}"
+REASONING_EFFORT="${REASONING_EFFORT:-medium}"
 INSTANCES="${INSTANCES:-swebench_pro/data/swebench_pro_full.jsonl}"
 CONFIG="${CONFIG:-swebench_pro/configs/swebench_pro_vanilla.yaml}"
 RESULTS_ROOT="${RESULTS_ROOT:-swebench_pro/results}"
@@ -75,8 +76,8 @@ ALL_MODELS=(
 # Prompt configs. Format:  "<key>:<prompt_config>:<rc>:<ri>:<ra>"
 # (rc/ri/ra ignored for qp6/qp7).
 ALL_CONFIGS=(
-    "quant_25:quant:1:-25:0"
-    "quant_100:quant:1:-100:0"
+    "quant_25:quant:1:-5:0"
+    "quant_100:quant:1:-10:0"
     "qp6:qp6::"
     "qp7:qp7::"
 )
@@ -100,6 +101,7 @@ while [ $# -gt 0 ]; do
         --workers)      WORKERS="$2"; shift 2 ;;
         --eval-workers) EVAL_WORKERS="$2"; shift 2 ;;
         --api-timeout)  API_TIMEOUT="$2"; shift 2 ;;
+        --reasoning-effort) REASONING_EFFORT="$2"; shift 2 ;;
         --no-eval)      DO_EVAL=0; shift ;;
         --gold-eval)    GOLD_EVAL=1; shift ;;
         -h|--help)
@@ -164,6 +166,7 @@ echo "  eval_workers   = $EVAL_WORKERS"
 echo "  do_eval        = $DO_EVAL"
 echo "  gold_eval      = $GOLD_EVAL"
 echo "  api_timeout    = ${API_TIMEOUT}s"
+echo "  reasoning      = $REASONING_EFFORT"
 
 slug () {
     local s="$1"; s="${s//\//_}"; s="${s//:/_}"; echo "$s"
@@ -192,6 +195,7 @@ for entry in "${SWEEP[@]}"; do
         --workers "$WORKERS"
         --eval-workers "$EVAL_WORKERS"
         --api-timeout "$API_TIMEOUT"
+        --reasoning-effort "$REASONING_EFFORT"
         --intervention "$intv"
         --prompt-config "$cfg_kind"
         --dockerhub-username "$DOCKERHUB_USERNAME"

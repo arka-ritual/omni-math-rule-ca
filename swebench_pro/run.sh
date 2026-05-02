@@ -67,6 +67,7 @@ RC="${RC:-}"
 RI="${RI:-}"
 RA="${RA:-}"
 API_TIMEOUT="${API_TIMEOUT:-600}"
+REASONING_EFFORT="${REASONING_EFFORT:-medium}"
 
 DO_INFER=1
 DO_EVAL=1
@@ -96,6 +97,7 @@ while [ $# -gt 0 ]; do
         --ri|--rubric-incorrect) RI="$2"; shift 2 ;;
         --ra|--rubric-abstain)   RA="$2"; shift 2 ;;
         --api-timeout)           API_TIMEOUT="$2"; shift 2 ;;
+        --reasoning-effort)      REASONING_EFFORT="$2"; shift 2 ;;
         --no-eval)            DO_EVAL=0; shift ;;
         --eval-only)          DO_INFER=0; shift ;;
         --gold-eval)          DO_INFER=0; GOLD_EVAL=1; shift ;;
@@ -154,6 +156,7 @@ if [ "$PROMPT_CONFIG" = "quant" ]; then
 fi
 echo "  output        = $OUTPUT"
 echo "  api_timeout   = ${API_TIMEOUT}s"
+echo "  reasoning     = $REASONING_EFFORT"
 echo "  do_infer      = $DO_INFER"
 echo "  do_eval       = $DO_EVAL"
 echo "  gold_eval     = $GOLD_EVAL"
@@ -184,6 +187,7 @@ if [ "$DO_INFER" -eq 1 ]; then
         --workers "$WORKERS" \
         --seed "$SEED" \
         --api-timeout "$API_TIMEOUT" \
+        --reasoning-effort "$REASONING_EFFORT" \
         "${EXTRA[@]}"
 else
     echo "[run] skipping inference (--eval-only / --gold-eval)"

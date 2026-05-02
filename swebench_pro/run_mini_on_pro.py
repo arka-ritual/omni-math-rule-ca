@@ -77,6 +77,104 @@ logger = logging.getLogger("minisweagent")
 logger.setLevel(logging.INFO)
 
 
+# ---- Reasoning-effort -> per-family model_kwargs ---------------------------
+# litellm exposes a unified `reasoning_effort` parameter for OpenAI o-series,
+# Gemini 2.x+, DeepSeek R1, and a few others. Anthropic, however, requires
+# `thinking={type: enabled, budget_tokens: N}` directly (litellm has been
+# inconsistent about translating reasoning_effort -> thinking for Claude;
+# aysm-ca's overlay comments warn it gets forwarded as extra_body and rejected).
+# Qwen on OpenRouter only accepts a boolean `enable_thinking` knob with no level.
+#
+# Mapping table (effort -> per-family knob value):
+#
+#   effort   | Anthropic budget_tokens | OpenAI/Gemini/DeepSeek reasoning_effort | Qwen enable_thinking
+#   ---------+-------------------------+-----------------------------------------+---------------------
+#   none     | (omit)                  | "none" / (omit)                         | false
+#   low      | 4096                    | "low"                                   | true
+#   medium   | 8000                    | "medium"                                | true
+#   high     | 16000                   | "high"                                  | true
+#   xhigh    | 32000                   | "xhigh"                                 | true
+#
+# Budget choice for Anthropic medium: 8000 mirrors aysm-ca's haiku overlay
+# (see aysm-ca/exp21c_swebenchpro_quantitative/swe_agent_configs/claude_haiku_overlay.yaml).
+_ANTHROPIC_BUDGET_BY_EFFORT = {
+    "none": None,
+    "low": 4096,
+    "medium": 8000,
+    "high": 16000,
+    "xhigh": 32000,
+}
+
+
+def _model_family(model_name: str) -> str:
+    """Classify the model_name into one of:
+       'anthropic', 'openai', 'gemini', 'qwen', 'deepseek', 'unknown'.
+    Used only to pick the right reasoning-effort knob shape."""
+    m = model_name.lower()
+    if m.startswith("anthropic/") or m.startswith("openrouter/anthropic/"):
+        return "anthropic"
+    if m.startswith("openai/") or m.startswith("openrouter/openai/"):
+        return "openai"
+    if m.startswith("gemini/") or m.startswith("openrouter/google/"):
+        return "gemini"
+    if "/qwen/" in m or m.startswith("qwen/"):
+        return "qwen"
+    if "/deepseek/" in m or m.startswith("deepseek/"):
+        return "deepseek"
+    return "unknown"
+
+
+def inject_reasoning_kwargs(model_name: str, effort: str, model_kwargs: dict) -> dict:
+    """Mutate `model_kwargs` in place to enable `effort`-level reasoning for
+    `model_name`. Returns the mutated dict for convenience.
+
+    The shape of the knob depends on the model family — see the table at the
+    top of this module. Unknown families log a warning and are left unchanged
+    (with `drop_params: true` already in the config, an unknown model that
+    doesn't accept the standard reasoning_effort param would silently drop it,
+    so explicit family detection is safer than blindly setting it).
+    """
+    if effort == "none":
+        return model_kwargs
+    family = _model_family(model_name)
+    if family == "anthropic":
+        budget = _ANTHROPIC_BUDGET_BY_EFFORT.get(effort)
+        if budget is None:
+            logger.warning(f"Unknown reasoning effort {effort!r}; leaving Anthropic thinking unset.")
+            return model_kwargs
+        model_kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+        # Anthropic's extended-thinking docs require temperature=1.0 when thinking
+        # is enabled; otherwise the API returns 400. Override silently — the
+        # intervention runs already use temperature=0.0 by default, which would
+        # break here.
+        model_kwargs["temperature"] = 0.0
+        # max_tokens must be > budget_tokens (thinking + completion). Bump if the
+        # current setting is too low. Default mini config doesn't set max_tokens
+        # so this is usually a no-op, but cheap to enforce.
+        existing_max = model_kwargs.get("max_tokens")
+        min_max = budget + 8000
+        if existing_max is None or existing_max < min_max:
+            model_kwargs["max_tokens"] = min_max
+        logger.info(f"[reasoning] Anthropic: thinking.budget_tokens={budget}, temperature=1.0")
+    elif family in ("openai", "gemini", "deepseek"):
+        model_kwargs["reasoning_effort"] = effort
+        logger.info(f"[reasoning] {family}: reasoning_effort={effort!r}")
+    elif family == "qwen":
+        # Qwen has no effort levels — just enable_thinking (boolean). For any
+        # non-"none" effort we turn it on.
+        eb = dict(model_kwargs.get("extra_body") or {})
+        eb["enable_thinking"] = True
+        model_kwargs["extra_body"] = eb
+        logger.info(f"[reasoning] qwen: extra_body.enable_thinking=true (no level support; effort={effort!r} ignored)")
+    else:
+        logger.warning(
+            f"[reasoning] Unknown model family for {model_name!r}; can't infer "
+            f"reasoning-effort knob shape. Set it manually in the yaml's "
+            f"model.model_kwargs if needed."
+        )
+    return model_kwargs
+
+
 def _build_environment(
     config: dict,
     instance: dict,
@@ -383,6 +481,14 @@ def main():
                          "(e.g. gpt-5-nano with reasoning) occasionally hang "
                          "on a single request; this bounds the wait so the "
                          "agent loop can retry / give up.")
+    ap.add_argument("--reasoning-effort", default="medium",
+                    choices=["none", "low", "medium", "high", "xhigh"],
+                    help="Reasoning effort for the model. Translated to a "
+                         "per-family model_kwargs knob (reasoning_effort for "
+                         "OpenAI/Gemini/DeepSeek; thinking.budget_tokens for "
+                         "Anthropic; extra_body.enable_thinking for Qwen). "
+                         "Default 'medium' to match aysm-ca's working setup. "
+                         "Pass 'none' to disable.")
     args = ap.parse_args()
 
     output_path = Path(args.output)
@@ -392,13 +498,19 @@ def main():
     import yaml
     config = yaml.safe_load(open(args.config))
 
-    # ---- Inject per-request litellm timeout ----------------------------
+    # ---- Inject per-request litellm timeout + reasoning effort ----------
     # Goes into model_kwargs which mini's LitellmModel splats straight
-    # into litellm.completion(**kwargs). litellm honours `timeout`.
+    # into litellm.completion(**kwargs). litellm honours `timeout` and
+    # the per-family reasoning knobs (see inject_reasoning_kwargs above).
     config.setdefault("model", {})
     mk = dict(config["model"].get("model_kwargs") or {})
     mk["timeout"] = float(args.api_timeout)
+    inject_reasoning_kwargs(args.model, args.reasoning_effort, mk)
     config["model"]["model_kwargs"] = mk
+    logger.info(
+        f"Final model_kwargs (reasoning_effort={args.reasoning_effort}): "
+        f"{ {k: v for k, v in mk.items() if k != 'api_key'} }"
+    )
 
     # ---- Inject intervention spec + system/instance templates ----------
     # The yaml acts as the base scaffold (model, environment, instance_template
