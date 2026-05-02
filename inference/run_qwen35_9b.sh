@@ -10,9 +10,17 @@
 #   bash inference/run_qwen35_9b.sh standard 0
 #   # Base-model autocomplete mode:
 #   bash inference/run_qwen35_9b.sh standard 100 --base_model
-#   # Base model + 4-shot scaffolding (variant chosen at runtime):
+#   # Base model + 4-shot scaffolding (variant chosen at runtime).
+#   # Valid fewshot variants (paper order):
+#   #   0. normal                  baseline, no consequences anywhere
+#   #   1. no_conseq               consequences ONLY in the final query
+#   #   2. conseq_no_abstain       consequences in examples+query, no decisions (paper: no_decision)
+#   #   3. conseq_random_abstain   + random ANSWER/ABSTAIN decisions            (paper: full)
+#   #   4. conseq_correct_abstain  + correct->ANSWER, wrong->ABSTAIN            (paper: correct)
+#   #   5. conseq_always_submit    + always ANSWER                              (paper: all_submit)
+#   #   6. conseq_always_abstain   + always ABSTAIN                             (paper: all_abstain)
 #   bash inference/run_qwen35_9b.sh cautious 100 --base_model --fewshot_variant conseq_correct_abstain
-#   bash inference/run_qwen35_9b.sh quantitative_grading 100 --base_model --fewshot_variant conseq_random_abstain
+#   bash inference/run_qwen35_9b.sh quantitative_grading 100 --base_model --fewshot_variant no_conseq
 #
 # The script:
 #   1. Starts a vLLM OpenAI-compatible server on port 8000
@@ -28,8 +36,8 @@ NUM_SAMPLES="${2:-100}"
 shift 2 2>/dev/null || true   # any remaining args are forwarded to inference_api.py
 EXTRA_ARGS=("$@")
 
-MODEL_ID="google/gemma-4-31b"
-MODEL_SHORT="gemma-4-31b"
+MODEL_ID="Qwen/Qwen3.5-9B-Base"
+MODEL_SHORT="Qwen3.5-9B-base"
 PORT=8000
 VLLM_SERVER_LOG="inference/results/${MODEL_SHORT}_vllm_server.log"
 MAX_MODEL_LEN=232000

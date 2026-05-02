@@ -1,7 +1,16 @@
 """Few-shot scaffolding for base (non-instruction-tuned) models.
 
-Provides a 4-shot preamble in 6 different configurations to test how models
-react to seeing consequences and abstain-decisions demonstrated in-context.
+Provides a 4-shot preamble in 7 configurations. Variant 0 is our baseline
+(no consequences anywhere); variants 1–6 mirror the 6 configurations in the
+paper. Code-name ↔ paper-name mapping:
+
+    0. normal                 -> (baseline — no consequences anywhere)
+    1. no_conseq              -> no_conseq
+    2. conseq_no_abstain      -> no_decision
+    3. conseq_random_abstain  -> full
+    4. conseq_correct_abstain -> correct
+    5. conseq_always_submit   -> all_submit
+    6. conseq_always_abstain  -> all_abstain
 
 Each Q/A pair follows this format:
 
@@ -16,6 +25,17 @@ Each Q/A pair follows this format:
 The final query (the actual problem) is rendered identically but truncated
 just after "Thoughts:" so the model continues from "1. ...". A stop sequence
 of "\\nQ:" prevents the model from running into a hallucinated next question.
+
+Placement of the consequence framing is controlled per variant by two flags:
+
+- `conseq_in_preamble` — whether the 4 few-shot examples prepend consequence
+  text to the Q.
+- `conseq_in_query`    — whether the actual query prepends consequence text
+  to the Q.
+
+Variant 0 (`normal`) has both False. Variant 1 (`no_conseq`) is the paper's
+"no_conseq": consequences in the final query only, not in the examples.
+Variants 2–6 have both True.
 """
 
 from typing import Literal
@@ -87,23 +107,40 @@ EXAMPLES = [
 
 
 Variant = Literal[
-    "normal",                  # 1. plain Q&A, no conseq, no abstain
-    "conseq_no_abstain",       # 2. conseq in Q, A is just normal soln
-    "conseq_random_abstain",   # 3. conseq in Q, abstain decisions random (mismatched)
-    "conseq_correct_abstain",  # 4. conseq in Q, correct→ANSWER, wrong→ABSTAIN
-    "conseq_always_submit",    # 5. conseq in Q, mixed correctness, always ANSWER
-    "conseq_always_abstain",   # 6. conseq in Q, always ABSTAIN
+    "normal",                  # 0. plain Q&A, no conseq anywhere (baseline)
+    "no_conseq",               # 1. conseq only in the final query, not in examples
+    "conseq_no_abstain",       # 2. conseq in examples + query; no decisions      (paper: no_decision)
+    "conseq_random_abstain",   # 3. conseq everywhere; mismatched decisions       (paper: full)
+    "conseq_correct_abstain",  # 4. conseq everywhere; correct->ANSWER, wrong->ABSTAIN (paper: correct)
+    "conseq_always_submit",    # 5. conseq everywhere; always ANSWER              (paper: all_submit)
+    "conseq_always_abstain",   # 6. conseq everywhere; always ABSTAIN             (paper: all_abstain)
 ]
 
 
 # Per-variant: list of (use_correct_solution, decision_or_None) for the 4 examples.
 _VARIANT_CHOICES: dict[str, list[tuple[bool, str | None]]] = {
-    "normal":                 [(True,  None),     (True,  None),     (True,  None),     (True,  None)],
-    "conseq_no_abstain":      [(True,  None),     (True,  None),     (True,  None),     (True,  None)],
-    "conseq_random_abstain":  [(True,  "ANSWER"), (False, "ANSWER"), (True,  "ABSTAIN"), (False, "ABSTAIN")],
-    "conseq_correct_abstain": [(True,  "ANSWER"), (True,  "ANSWER"), (False, "ABSTAIN"), (False, "ABSTAIN")],
-    "conseq_always_submit":   [(True,  "ANSWER"), (True, "ANSWER"), (True,  "ANSWER"), (True, "ANSWER")],
-    "conseq_always_abstain":  [(False,  "ABSTAIN"), (False, "ABSTAIN"), (False,  "ABSTAIN"), (False, "ABSTAIN")],
+    "normal":                 [(True,  None),      (True,  None),      (True,  None),      (True,  None)],
+    "no_conseq":              [(True,  None),      (True,  None),      (True,  None),      (True,  None)],
+    "conseq_no_abstain":      [(True,  None),      (True,  None),      (True,  None),      (True,  None)],
+    "conseq_random_abstain":  [(True,  "ANSWER"),  (False, "ANSWER"),  (True,  "ABSTAIN"), (False, "ABSTAIN")],
+    "conseq_correct_abstain": [(True,  "ANSWER"),  (True,  "ANSWER"),  (False, "ABSTAIN"), (False, "ABSTAIN")],
+    "conseq_always_submit":   [(True,  "ANSWER"),  (True,  "ANSWER"),  (True,  "ANSWER"),  (True,  "ANSWER")],
+    "conseq_always_abstain":  [(False, "ABSTAIN"), (False, "ABSTAIN"), (False, "ABSTAIN"), (False, "ABSTAIN")],
+}
+
+
+# Per-variant: (conseq_in_preamble, conseq_in_query). This decouples where
+# the consequence framing is shown — the paper's `no_conseq` hides consequences
+# from the few-shot examples while still showing them to the model when it
+# answers the real question.
+_VARIANT_META: dict[str, tuple[bool, bool]] = {
+    "normal":                 (False, False),
+    "no_conseq":              (False, True),
+    "conseq_no_abstain":      (True,  True),
+    "conseq_random_abstain":  (True,  True),
+    "conseq_correct_abstain": (True,  True),
+    "conseq_always_submit":   (True,  True),
+    "conseq_always_abstain":  (True,  True),
 }
 
 
@@ -129,23 +166,29 @@ def _format_a(thoughts: list[str], decision: str | None, answer: str) -> str:
     return "\n".join(lines)
 
 
+def _check_variant(variant: str) -> None:
+    if variant not in _VARIANT_CHOICES:
+        raise ValueError(
+            f"Unknown variant '{variant}'. Available: {list(_VARIANT_CHOICES.keys())}"
+        )
+
+
 def build_preamble(variant: Variant, consequence_text: str = "") -> str:
     """Render the 4-shot preamble for the given variant.
 
     `consequence_text` is the prompt text (e.g. PROMPTS["cautious"]) to embed
-    inline before each Q. Ignored when variant == "normal".
+    inline before each Q. Embedded only when the variant has
+    `conseq_in_preamble=True` (see `_VARIANT_META`).
     """
-    if variant not in _VARIANT_CHOICES:
-        raise ValueError(f"Unknown variant '{variant}'. Available: {list(_VARIANT_CHOICES.keys())}")
-
-    embed_conseq = variant != "normal"
+    _check_variant(variant)
+    embed_in_preamble, _ = _VARIANT_META[variant]
     choices = _VARIANT_CHOICES[variant]
 
     blocks = []
     for ex, (use_correct, decision) in zip(EXAMPLES, choices):
         thoughts = ex["correct_thoughts"] if use_correct else ex["wrong_thoughts"]
         answer = ex["correct_answer"] if use_correct else ex["wrong_answer"]
-        q = _format_q(ex["problem"], consequence_text if embed_conseq else None)
+        q = _format_q(ex["problem"], consequence_text if embed_in_preamble else None)
         a = _format_a(thoughts, decision, answer)
         blocks.append(f"{q}\n{a}")
 
@@ -156,9 +199,13 @@ def format_query(problem: str, variant: Variant, consequence_text: str = "") -> 
     """Format the actual question to be answered, ending at 'Thoughts:'.
 
     The model is expected to continue from "1. ..." through to "Final Answer:".
+    `consequence_text` is embedded before the query only when the variant has
+    `conseq_in_query=True` (see `_VARIANT_META`) — e.g. the `no_conseq` variant
+    embeds it here even though the preamble hides it.
     """
-    embed_conseq = variant != "normal"
-    q = _format_q(problem, consequence_text if embed_conseq else None)
+    _check_variant(variant)
+    _, embed_in_query = _VARIANT_META[variant]
+    q = _format_q(problem, consequence_text if embed_in_query else None)
     return f"{q}\nThoughts:"
 
 
@@ -172,4 +219,5 @@ def build_full_prompt(problem: str, variant: Variant, consequence_text: str = ""
 STOP_SEQUENCES = ["\nQ:", "\n\nQ:"]
 
 
+# Listed in paper order (0..6) so `--help` output follows the numbering above.
 VARIANTS = list(_VARIANT_CHOICES.keys())
