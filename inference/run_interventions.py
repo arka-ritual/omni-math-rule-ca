@@ -296,6 +296,8 @@ async def run(args):
     provider_kwargs = {}
     if args.api_key:
         provider_kwargs["api_key"] = args.api_key
+    if args.openrouter_provider:
+        provider_kwargs["openrouter_provider"] = args.openrouter_provider
     provider = get_provider(args.provider, **provider_kwargs)
 
     sem = asyncio.Semaphore(args.concurrency)
@@ -348,6 +350,11 @@ def parse_args():
     p.add_argument("--max_tokens", type=int, default=32768)
     p.add_argument("--concurrency", type=int, default=20)
     p.add_argument("--api_key", default=None)
+    p.add_argument("--openrouter-provider", "--openrouter_provider",
+                   dest="openrouter_provider", default=None,
+                   help="When --provider=openrouter, force OpenRouter to "
+                        "route to a specific upstream provider (e.g. "
+                        "'DeepSeek'). Disables fallbacks.")
     p.add_argument("--intervention1_input", default=None,
                    help="Required for --intervention 4: path to the "
                         "intervention-1 results JSONL to re-score.")

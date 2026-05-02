@@ -1,0 +1,10 @@
+{
+  "num_total": 100,
+  "num_abstained": 5,
+  "num_indeterminate": 5,
+  "num_attempted": 90,
+  "num_correct": 78,
+  "num_incorrect_standard": 4,
+  "num_incorrect_mixed": 8,
+  "accuracy_of_attempted": 86.7
+}

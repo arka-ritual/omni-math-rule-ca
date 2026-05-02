@@ -104,13 +104,16 @@ done
 mkdir -p "$RESULTS_DIR" "$EVAL_DIR"
 
 # ---- model set --------------------------------------------------------
-# Each line: <slug>|<provider>|<provider-model-id>
+# Each line: <slug>|<provider>|<provider-model-id>[|<openrouter-subprovider>]
+# The optional 4th field forces OpenRouter to route to a specific upstream
+# (e.g. "DeepSeek") with allow_fallbacks=false. Only meaningful when the
+# provider field is "openrouter".
 MODELS=(
     "claude-haiku-4-5|anthropic|claude-haiku-4-5"
-    "gemini-3.1-flash-lite|google|gemini-3.1-flash-lite"
+    "gemini-3.1-flash-lite-preview|openrouter|google/gemini-3.1-flash-lite-preview"
     "gpt-5.4-nano|openai|gpt-5.4-nano"
-    "qwen3.5-397b|openrouter|qwen/qwen3.5-397b-instruct"
-    "deepseek-v4-pro|openrouter|deepseek/deepseek-v4-pro"
+    "qwen3.5-397b|openrouter|qwen/qwen3.5-397b-a17b"
+    "deepseek-v4-pro|openrouter|deepseek/deepseek-v4-pro|DeepSeek"
 )
 
 PROMPT_CONFIGS=("Quant-25" "Quant-100" "QP6" "QP7")
@@ -146,17 +149,22 @@ echo "  filters: model='${ONLY_MODEL:-(all)}' config='${ONLY_CONFIG:-(all)}' int
 echo "  results_dir=$RESULTS_DIR  eval_dir=$EVAL_DIR"
 
 run_one_inference () {
-    local slug="$1" provider="$2" model="$3" cfg="$4" interv="$5"
+    local slug="$1" provider="$2" model="$3" cfg="$4" interv="$5" or_subprovider="${6:-}"
     local out="$RESULTS_DIR/${slug}_int${interv}_${cfg}.jsonl"
+    local extra_args=()
+    if [ -n "$or_subprovider" ]; then
+        extra_args+=(--openrouter-provider "$or_subprovider")
+    fi
     echo
-    echo "=== ${slug} | int${interv} | ${cfg} ==="
+    echo "=== ${slug} | int${interv} | ${cfg}${or_subprovider:+ | OR-provider=$or_subprovider} ==="
     python inference/run_interventions.py \
         --provider "$provider" --model "$model" \
         --intervention "$interv" --prompt_config "$cfg" \
         --save_path "$out" \
         --num_samples "$NUM_SAMPLES" --seed "$SEED" \
         --temperature "$TEMPERATURE" --max_tokens "$MAX_TOKENS" \
-        --concurrency "$CONCURRENCY"
+        --concurrency "$CONCURRENCY" \
+        "${extra_args[@]}"
     python evaluation/math_eval_cautious.py \
         --data_file "$out" \
         --output_dir "$EVAL_DIR/${slug}_int${interv}_${cfg}"
@@ -202,13 +210,13 @@ fi
 echo "Will run $cells cell(s)."
 
 for entry in "${MODELS[@]}"; do
-    IFS='|' read -r slug provider model <<< "$entry"
+    IFS='|' read -r slug provider model or_subprovider <<< "$entry"
     [ -n "$ONLY_MODEL" ] && [ "$ONLY_MODEL" != "$slug" ] && continue
     for cfg in "${PROMPT_CONFIGS[@]}"; do
         [ -n "$ONLY_CONFIG" ] && [ "$ONLY_CONFIG" != "$cfg" ] && continue
         for interv in "${INTERVENTIONS[@]}"; do
             [ -n "$ONLY_INTERVENTION" ] && [ "$ONLY_INTERVENTION" != "$interv" ] && continue
-            run_one_inference "$slug" "$provider" "$model" "$cfg" "$interv"
+            run_one_inference "$slug" "$provider" "$model" "$cfg" "$interv" "$or_subprovider"
         done
         if [ -z "$ONLY_INTERVENTION" ] || [ "$ONLY_INTERVENTION" = "4" ]; then
             run_intervention4 "$slug" "$cfg"

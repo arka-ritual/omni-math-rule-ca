@@ -10,12 +10,25 @@ from inference.providers.openai_provider import _chat_response_to_meta
 class OpenRouterProvider(Provider):
     """OpenRouter provider — OpenAI-compatible API at openrouter.ai."""
 
-    def __init__(self, api_key: str = None, **kwargs):
+    def __init__(self, api_key: str = None, openrouter_provider: str = None, **kwargs):
         api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
         self.client = openai.AsyncOpenAI(
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1",
         )
+        # Optional OpenRouter sub-provider routing (e.g. force "DeepSeek" for
+        # deepseek/* models). When set, OpenRouter routes only to that
+        # upstream and does not silently fall back to a different host.
+        # See https://openrouter.ai/docs/features/provider-routing
+        if openrouter_provider:
+            self._extra_body = {
+                "provider": {
+                    "order": [openrouter_provider],
+                    "allow_fallbacks": False,
+                }
+            }
+        else:
+            self._extra_body = None
 
     async def generate(
         self,
@@ -31,15 +44,18 @@ class OpenRouterProvider(Provider):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+        create_kwargs = dict(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+        )
+        if self._extra_body is not None:
+            create_kwargs["extra_body"] = self._extra_body
         max_retries = 6
         for attempt in range(max_retries):
             try:
-                response = await self.client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_completion_tokens=max_completion_tokens,
-                )
+                response = await self.client.chat.completions.create(**create_kwargs)
                 return response.choices[0].message.content
             except (openai.RateLimitError, openai.APIStatusError) as e:
                 if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
@@ -48,12 +64,7 @@ class OpenRouterProvider(Provider):
                 print(f"[retry {attempt+1}/{max_retries}] {e} — waiting {wait}s")
                 await asyncio.sleep(wait)
         # Final attempt — let any exception propagate.
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_completion_tokens=max_completion_tokens,
-        )
+        response = await self.client.chat.completions.create(**create_kwargs)
         return response.choices[0].message.content
 
     async def generate_with_meta(
@@ -70,15 +81,18 @@ class OpenRouterProvider(Provider):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+        create_kwargs = dict(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+        )
+        if self._extra_body is not None:
+            create_kwargs["extra_body"] = self._extra_body
         max_retries = 6
         for attempt in range(max_retries):
             try:
-                response = await self.client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_completion_tokens=max_completion_tokens,
-                )
+                response = await self.client.chat.completions.create(**create_kwargs)
                 return _chat_response_to_meta(response)
             except (openai.RateLimitError, openai.APIStatusError) as e:
                 if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
@@ -86,10 +100,5 @@ class OpenRouterProvider(Provider):
                 wait = 2 ** attempt
                 print(f"[retry {attempt+1}/{max_retries}] {e} — waiting {wait}s")
                 await asyncio.sleep(wait)
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_completion_tokens=max_completion_tokens,
-        )
+        response = await self.client.chat.completions.create(**create_kwargs)
         return _chat_response_to_meta(response)
