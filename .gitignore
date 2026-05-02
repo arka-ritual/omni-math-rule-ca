@@ -53,3 +53,7 @@ build/
 # Cloned upstream SWE-bench Pro evaluation repo (set up by
 # swebench_pro/scripts/setup_eval_repo.sh).
 swebench_pro/external/
+workspace/
+mini_entryscript.sh
+mini_output.json
+mini_patch.diff

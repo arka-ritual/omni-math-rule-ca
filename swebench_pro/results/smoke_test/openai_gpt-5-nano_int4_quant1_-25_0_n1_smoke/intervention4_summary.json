@@ -1,0 +1,9 @@
+{
+  "gravitational__teleport-a95b3ae0667f9e4b2404bf61f51113e6d83f01cd": {
+    "confidence": 0.25,
+    "decision": "abstain",
+    "tau": 0.9615384615384616,
+    "original_exit_status": "Submitted",
+    "reason": "c=0.250 < tau=0.962"
+  }
+}
