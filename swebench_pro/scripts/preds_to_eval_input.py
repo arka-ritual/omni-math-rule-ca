@@ -36,11 +36,21 @@ def convert(rundir: Path, add_prefix: bool = True) -> Path:
     patches = []
     skipped: list[str] = []
     for iid, entry in preds.items():
-        patch = (entry.get("model_patch") or "").strip()
+        # Preserve the patch byte-for-byte. .strip() here would remove the
+        # trailing \n that `git apply` requires; without it the patch is
+        # rejected as "corrupt patch at line N" and the instance silently
+        # scores false. Only strip for the empty-check.
+        patch = entry.get("model_patch") or ""
         eval_iid = iid if (iid.startswith("instance_") or not add_prefix) else f"instance_{iid}"
-        if not patch:
+        if not patch.strip():
             skipped.append(eval_iid)
             continue
+        # Make sure the patch ends with exactly one newline — git apply also
+        # rejects patches whose final hunk line lacks a trailing newline,
+        # which can happen if the model's `cat patch.txt` captured a file
+        # without a trailing newline.
+        if not patch.endswith("\n"):
+            patch = patch + "\n"
         patches.append({
             "instance_id": eval_iid,
             "model_patch": patch,
