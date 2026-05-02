@@ -144,10 +144,11 @@ def inject_reasoning_kwargs(model_name: str, effort: str, model_kwargs: dict) ->
             return model_kwargs
         model_kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
         # Anthropic's extended-thinking docs require temperature=1.0 when thinking
-        # is enabled; otherwise the API returns 400. Override silently — the
+        # is enabled; otherwise the API returns 400 ("`temperature` may only be
+        # set to 1 when thinking is enabled"). Override silently — the
         # intervention runs already use temperature=0.0 by default, which would
         # break here.
-        model_kwargs["temperature"] = 0.0
+        model_kwargs["temperature"] = 1.0
         # max_tokens must be > budget_tokens (thinking + completion). Bump if the
         # current setting is too low. Default mini config doesn't set max_tokens
         # so this is usually a no-op, but cheap to enforce.
