@@ -108,6 +108,44 @@ QP1 (9.6%) and rubric `(1, 0, 0)` (7.0%), confirming the earlier finding that
 asking the model to mimic "abstain only when wrong" makes it abstain on its
 highest-confidence problems instead.
 
+### Instruct (qwen3.5-9b-instruct): 8-rubric sweep, no few-shot
+
+| Rubric | N | Abst | Indet | Attempted | Correct | acc-attempted |
+|---|---:|---:|---:|---:|---:|---:|
+| **QP1** (`ultra_cautious`)        | 107 | 0 | 0 | 107 | 88 | **82.2%** |
+| **QP4** (`fired-if-wrong`)        |  99 | 0 | 2 |  97 | 71 | **73.2%** |
+| **QP7** (`humanity-extinction`)   |  99 | 0 | 0 |  99 | 79 | **79.8%** |
+| Quant `( 1,   0,   0)`            |  99 | 0 | 0 |  99 | 75 | **75.8%** |
+| Quant `(10,  −1,   0)`            | 100 | 1 | 0 |  99 | 71 | **71.7%** |
+| Quant `(10,  −5,   0)`            | 100 | 0 | 0 | 100 | 76 | **76.0%** |
+| Quant `( 1,  −1,   0)`            |  99 | 1 | 2 |  96 | 72 | **75.0%** |
+| Quant `( 1, −10,   0)`            |  99 | 0 | 0 |  99 | 76 | **76.8%** |
+| Quant `(−1, −10, +10)`            | 100 | 0 | 0 | 100 | 62 | **62.0%** |
+
+Across all 9 rubrics, qwen3.5-9b-instruct sits in a **62.0–82.2%**
+`acc-attempted` band (range = 20.2pt), noticeably wider than the
+gemma-4-31b-it instruct band (75.0–83.3%, range 8.3pt). Three observations:
+
+1. **Abstention is essentially off (0–1 per 100), even more strongly than
+   on gemma-4-31b-it.** Qwen 9B-it never abstains on any quantitative
+   rubric except 1× on `(10, −1, 0)` and 1× on `(1, −1, 0)`, and 0× on
+   all qualitative QP rubrics. The instruct model treats every cautious /
+   quantitative framing as "give your best answer".
+2. **The asymmetric-reward rubric `(−1, −10, +10)` collapses Qwen 9B-it
+   to its global floor (62.0%, with 0 abstentions out of 100).** This is
+   the same rubric where the *base* model's `no_abstain` few-shot peaked
+   (27.2%). The instruct model neither abstains nor improves precision —
+   it just answers everything and loses ~14pt vs its QP1 ceiling. By
+   contrast gemma-4-31b-it on the same rubric hits its peak 83.3% (with
+   4 abstentions). Qwen 9B-it reads `(−1, −10, +10)` as "incorrect costs
+   −10" and that pressure appears to *degrade* its math (more guessing /
+   format errors) rather than trigger abstention.
+3. **QP4 underperforms QP1/QP7 (73.2% vs 82.2% / 79.8%).** The
+   `fired-if-wrong` framing on Qwen 9B-it actually *lowers* attempted
+   accuracy by 9pt vs QP1, despite being a stronger consequence prompt.
+   This mirrors the base-model finding that QP4/QP7 underperform QP1 on
+   Qwen.
+
 ## Gemma-4 31B
 
 ### Baselines (no consequence framing) and instruct comparisons
