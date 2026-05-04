@@ -108,13 +108,22 @@ _ANTHROPIC_BUDGET_BY_EFFORT = {
 
 def _model_family(model_name: str) -> str:
     """Classify the model_name into one of:
-       'anthropic', 'openai', 'gemini', 'qwen', 'deepseek', 'unknown'.
-    Used only to pick the right reasoning-effort knob shape."""
+       'anthropic', 'openai', 'gemini', 'qwen', 'deepseek', 'gemma', 'unknown'.
+    Used only to pick the right reasoning-effort knob shape.
+
+    Note: Gemma is split out from Gemini even though both live under
+    `openrouter/google/`. Gemma 4 doesn't accept the `reasoning_effort`
+    parameter the way Gemini does (it has a separate `thinking` config),
+    so blindly setting reasoning_effort would either be dropped silently
+    (drop_params=True) or rejected. Treating it as its own family avoids
+    surprise behavior."""
     m = model_name.lower()
     if m.startswith("anthropic/") or m.startswith("openrouter/anthropic/"):
         return "anthropic"
     if m.startswith("openai/") or m.startswith("openrouter/openai/"):
         return "openai"
+    if "gemma" in m:
+        return "gemma"
     if m.startswith("gemini/") or m.startswith("openrouter/google/"):
         return "gemini"
     if "/qwen/" in m or m.startswith("qwen/"):
@@ -167,6 +176,17 @@ def inject_reasoning_kwargs(model_name: str, effort: str, model_kwargs: dict) ->
         eb["enable_thinking"] = True
         model_kwargs["extra_body"] = eb
         logger.info(f"[reasoning] qwen: extra_body.enable_thinking=true (no level support; effort={effort!r} ignored)")
+    elif family == "gemma":
+        # Gemma 4's reasoning ("thinking mode") doesn't take an effort level via
+        # the standard reasoning_effort knob. OpenRouter exposes it through the
+        # provider-specific `reasoning` field, but litellm support is uneven.
+        # For now, leave model_kwargs alone — users who want Gemma reasoning
+        # should set extra_body manually in the yaml. Vanilla baseline runs
+        # are unaffected.
+        logger.info(
+            f"[reasoning] gemma: no standard knob; skipping (effort={effort!r}). "
+            f"Set extra_body.reasoning manually in the yaml if needed."
+        )
     else:
         logger.warning(
             f"[reasoning] Unknown model family for {model_name!r}; can't infer "

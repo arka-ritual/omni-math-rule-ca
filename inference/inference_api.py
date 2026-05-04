@@ -20,6 +20,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from tqdm.asyncio import tqdm_asyncio
 
+# Best-effort .env loading so the providers pick up API keys without
+# requiring the user to source a script. Mirrors run_interventions.py.
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:
+    pass
+
 from inference.prompts import PROMPTS, build_quantitative_grading
 from inference.providers import get_provider
 from inference import fewshot
@@ -135,6 +143,8 @@ async def run_inference(args):
         provider_kwargs["base_model"] = True
     if args.provider == "vllm" and args.base_model_timeout is not None:
         provider_kwargs["base_model_timeout"] = args.base_model_timeout
+    if args.openrouter_provider:
+        provider_kwargs["openrouter_provider"] = args.openrouter_provider
     provider = get_provider(args.provider, **provider_kwargs)
 
     # --- Async inference with immediate writes ---
@@ -204,6 +214,12 @@ def parse_args():
     parser.add_argument("--start", type=int, default=0, help="Start index in dataset (default: 0)")
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling (default: 0)")
     parser.add_argument("--api_key", type=str, default=None, help="API key (overrides env variable)")
+    parser.add_argument("--openrouter-provider", "--openrouter_provider",
+                        dest="openrouter_provider", default=None,
+                        help="OpenRouter sub-provider to pin via provider routing "
+                             "(e.g. 'DeepSeek'). Sets allow_fallbacks=false, so the "
+                             "request fails loudly if that upstream isn't available "
+                             "instead of silently being routed elsewhere.")
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
     parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
     parser.add_argument("--base_model_timeout", type=float, default=60.0,

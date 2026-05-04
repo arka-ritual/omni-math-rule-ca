@@ -171,15 +171,58 @@ def extract_all_boxed(text: str) -> list[str]:
     return results
 
 
+# Matches "UNSURE" wrapped in any LaTeX text/font command, e.g.
+# \text{UNSURE}, \textbf{UNSURE}, \mathrm{UNSURE}, \mathit{UNSURE},
+# \mathbf{UNSURE}, etc. Models routinely emit \boxed{\text{UNSURE}} —
+# `extract_all_boxed` strips the outer \boxed{...} but leaves the inner
+# \text{...} intact, which used to fail the equality check below and
+# get classified as `incorrect_standard`.
+_LATEX_TEXT_WRAPPER_RE = re.compile(
+    r"^\\(?:text|textbf|textit|textrm|mathrm|mathbf|mathit|mathsf|mathtt|operatorname)\s*\{\s*([^{}]*?)\s*\}$"
+)
+
+
 def is_unsure(value: str) -> bool:
-    """Check if a boxed value is UNSURE (case-insensitive, stripped)."""
-    return value.strip().upper() == "UNSURE"
+    """Check if a boxed value is the UNSURE abstention marker.
+
+    Accepts the bare word as well as common LaTeX wrappers
+    (`\\text{UNSURE}`, `\\textbf{UNSURE}`, `\\mathrm{UNSURE}`, …).
+    Case-insensitive, whitespace-tolerant.
+    """
+    s = (value or "").strip()
+    if s.upper() == "UNSURE":
+        return True
+    m = _LATEX_TEXT_WRAPPER_RE.match(s)
+    if m and m.group(1).strip().upper() == "UNSURE":
+        return True
+    return False
+
+
+def _is_multi_turn_intervention(item: dict) -> bool:
+    """Multi-turn interventions (Int2 = confidence-then-reveal,
+    Int3 = direct-reveal) emit a final 'decision' turn whose text often
+    quotes the model's earlier-turn answer in prose, e.g.
+    "your previous answer was \\boxed{6}, but I'll abstain ... \\boxed{UNSURE}".
+    The standard `incorrect_mixed` rule (which penalises any mix of UNSURE
+    and non-UNSURE boxes) misclassifies these as incorrect, when the
+    model's actual final decision is the LAST box. For these
+    interventions we therefore grade on the last box only.
+
+    Single-turn intervention 1 keeps the original mixed-penalty rule:
+    the entire response is one turn, so a mix of UNSURE + real answer is
+    a genuine self-contradiction.
+    """
+    return item.get("intervention") in (2, 3)
 
 
 def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
     """Classify a single problem's model output.
 
     Returns a dict with keys: score, category, all_boxed, pred, gt.
+
+    For multi-turn interventions (2, 3) the `incorrect_mixed` branch is
+    skipped and only the last `\\boxed{...}` value is graded — see
+    `_is_multi_turn_intervention` for the rationale.
     """
     generation = item.get("model_generation", "") or ""
     # For reasoning models, discard the <think>...</think> scratch block
@@ -188,6 +231,7 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
     scored_text = strip_reasoning(generation)
     all_boxed = extract_all_boxed(scored_text)
     truncated = is_truncated(item)
+    multi_turn = _is_multi_turn_intervention(item)
 
     # Ground truth: use 'answer' field directly (Omni-MATH-Rule format)
     gt_raw = item.get("answer", "")
@@ -234,8 +278,35 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
             "gt": gt,
         }
 
+    if multi_turn:
+        # Multi-turn (int2/int3): grade only on the LAST box. The
+        # decision-turn text frequently quotes the earlier turn's answer
+        # in prose (e.g. "your previous answer was \\boxed{6}, but I'll
+        # abstain... \\boxed{UNSURE}"), so the standard mixed-penalty
+        # would mis-flag genuine abstentions as `incorrect_mixed`.
+        last_unsure = unsure_flags[-1]
+        if last_unsure:
+            return {
+                "score": False,
+                "category": "abstained",
+                "all_boxed": all_boxed,
+                "pred": "UNSURE",
+                "gt": gt,
+            }
+        pred = strip_string(all_boxed[-1])
+        correct = math_equal(pred, gt, timeout=True)
+        return {
+            "score": bool(correct),
+            "category": "correct" if correct else "incorrect_standard",
+            "all_boxed": all_boxed,
+            "pred": pred,
+            "gt": gt,
+        }
+
     if has_unsure and has_non_unsure:
-        # Mixed: both UNSURE and real answers — automatic penalty
+        # Mixed: both UNSURE and real answers — automatic penalty.
+        # (Single-turn interventions only; see `multi_turn` branch above
+        # for the int2/int3 case.)
         return {
             "score": False,
             "category": "incorrect_mixed",
