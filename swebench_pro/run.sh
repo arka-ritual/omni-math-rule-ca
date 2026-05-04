@@ -35,11 +35,16 @@
 #   - Resume is keyed on the instance ids already in <output>/preds.json.
 #
 # Consequence-asymmetry interventions (mirrors inference/run_interventions.sh):
-#   --intervention {0,1,2,3}        0 = vanilla (no CA framing). Default 0.
-#   --prompt-config {none,quant,qp6,qp7}
+#   --intervention {0,1,2,3,5}      0 = vanilla (no CA framing). Default 0.
+#                                   5 = vanilla submit flow + consequence
+#                                       framing in system prompt + the
+#                                       `exit_abstain` tool. Use this for the
+#                                       "consequence-only" sweep (closest
+#                                       analogue to the math QP/quant runs).
+#   --prompt-config {none,quant,qp1,qp2,qp3,qp4,qp5,qp6,qp7}
 #                                   none + intervention 0 = vanilla
 #                                   quant requires --rc/--ri/--ra
-#                                   qp6/qp7 use the qualitative paragraphs
+#                                   qp1..qp7 use the qualitative paragraphs
 #                                   from the paper (no rubric needed).
 #   --rc / --ri / --ra              quantitative rubric values (correct,
 #                                   incorrect, abstain).

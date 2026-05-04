@@ -260,8 +260,9 @@ def render_install_script(
       2: submit_preliminary_patch, submit_confidence, finalize_submission, exit_abstain
       3: submit_preliminary_patch, finalize_submission, exit_abstain
       4 (post-hoc): same as 1 — same tools, same trajectories, no separate run
+      5: exit_abstain only (vanilla submit flow + abstain channel)
     """
-    if intervention not in (1, 2, 3, 4):
+    if intervention not in (1, 2, 3, 4, 5):
         raise ValueError(f"unknown intervention: {intervention}")
 
     bodies = {
@@ -276,6 +277,7 @@ def render_install_script(
         2: ["submit_preliminary_patch", "submit_confidence", "finalize_submission", "exit_abstain"],
         3: ["submit_preliminary_patch", "finalize_submission", "exit_abstain"],
         4: ["submit_confidence", "finalize_submission", "exit_abstain"],
+        5: ["exit_abstain"],
     }[intervention]
 
     install_lines: list[str] = []
@@ -294,6 +296,9 @@ def render_install_script(
         else f'rm -f {STATE_DIR}/reveal.txt'
     )
 
+    # Intervention 5 doesn't use a state machine (vanilla submit flow), but
+    # we still write a benign "solve" phase so any tool that grep's the
+    # state file finds something coherent.
     initial_phase = "review" if intervention in (2, 3) else "solve"
 
     script = f"""#!/bin/bash

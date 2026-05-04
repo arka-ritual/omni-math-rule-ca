@@ -46,18 +46,26 @@ class DockerEnvironmentWithAbstain(DockerEnvironment):
     """DockerEnvironment whose `_check_finished` is mode-aware.
 
     use_intervention_markers (bool, default False)
-        - False: only recognise the vanilla submit marker (current
-          mini-swe-agent behaviour).
+        - False: recognise the vanilla submit marker. If
+          `recognize_abstain_marker=True` is also passed, additionally
+          recognise __CA_ABSTAIN_NOW__ as an abstention exit (used by
+          intervention 5, where the submit flow is vanilla but the
+          abstain tool is installed).
         - True:  only recognise __CA_FINALIZE_PATCH_NOW__ /
           __CA_ABSTAIN_NOW__. The vanilla marker is *ignored*, so the
           model cannot bypass the intervention's submit/abstain tools by
           echoing it manually.
+
+    recognize_abstain_marker (bool, default False)
+        Only meaningful when use_intervention_markers=False. When True,
+        ABSTAIN_MARKER also terminates the loop with exit_status=Abstained.
     """
 
     def __init__(
         self,
         *,
         use_intervention_markers: bool = False,
+        recognize_abstain_marker: bool = False,
         reuse_container_id: str | None = None,
         **kwargs,
     ):
@@ -66,6 +74,7 @@ class DockerEnvironmentWithAbstain(DockerEnvironment):
         Used by the per-instance resume path (`run_mini_on_pro.py`).
         Raises RuntimeError if the named container is missing or stopped."""
         self._use_intervention_markers = use_intervention_markers
+        self._recognize_abstain_marker = recognize_abstain_marker
         self._reuse_container_id = reuse_container_id
         super().__init__(**kwargs)
 
@@ -117,5 +126,13 @@ class DockerEnvironmentWithAbstain(DockerEnvironment):
                         "role": "exit",
                         "content": submission,
                         "extra": {"exit_status": "Submitted", "submission": submission},
+                    }
+                )
+            if self._recognize_abstain_marker and first == ABSTAIN_MARKER:
+                raise Submitted(
+                    {
+                        "role": "exit",
+                        "content": "",
+                        "extra": {"exit_status": "Abstained", "submission": ""},
                     }
                 )

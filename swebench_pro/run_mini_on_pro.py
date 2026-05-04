@@ -233,8 +233,14 @@ def _build_environment(
         })
     env_cfg["env"] = extra_env
 
+    # Marker mode:
+    #   intv 0: vanilla submit only (no abstain channel)
+    #   intv 5: vanilla submit + abstain marker (vanilla submit flow, but
+    #           the model can also call exit_abstain)
+    #   intv 1/2/3/4: intervention markers only (vanilla marker is ignored)
     env = DockerEnvironmentWithAbstain(
-        use_intervention_markers=(intv != 0),
+        use_intervention_markers=(intv not in (0, 5)),
+        recognize_abstain_marker=(intv == 5),
         reuse_container_id=reuse_container_id,
         **env_cfg,
     )
@@ -477,19 +483,22 @@ def main():
                     help="Random seed for shuffle-and-slice sampling "
                          "(default: 100, mirrors inference_api.py).")
     ap.add_argument("--intervention", type=int, default=0,
-                    choices=[0, 1, 2, 3],
+                    choices=[0, 1, 2, 3, 5],
                     help="0 = vanilla (no consequence framing). "
                          "1 = single-turn-multi-step (rubric in system prompt + "
                          "submit_confidence + finalize_submission). "
                          "2 = multi-turn (rubric revealed by submit_preliminary_patch). "
                          "3 = multi-turn no-confidence (ablation of 2). "
+                         "5 = vanilla submit flow + consequence framing in "
+                         "system prompt + `exit_abstain` tool. "
                          "Intervention 4 reuses intervention 1 trajectories — "
                          "use scripts/apply_intervention4.py post-hoc.")
     ap.add_argument("--prompt-config", default="none",
-                    choices=["none", "quant", "qp6", "qp7"],
+                    choices=["none", "quant",
+                             "qp1", "qp2", "qp3", "qp4", "qp5", "qp6", "qp7"],
                     help="Consequence rubric type. 'none' is only valid with "
                          "--intervention 0. Use 'quant' with --rubric-* flags, "
-                         "or 'qp6' / 'qp7' for the qualitative paragraphs.")
+                         "or 'qp1'…'qp7' for the qualitative paragraphs.")
     ap.add_argument("--rubric-correct",   type=float, default=None,
                     help="Quantitative rubric: score for a correct submission.")
     ap.add_argument("--rubric-incorrect", type=float, default=None,
@@ -584,6 +593,12 @@ def main():
                 "If you have completed your work, run "
                 "`submit_preliminary_patch`, then `submit_confidence --value <0..1>`, "
                 "then `finalize_submission` (or `exit_abstain` to abstain)."
+            )
+        elif args.intervention == 5:
+            hint = (
+                "If you have completed your work, submit your patch with the "
+                "normal flow (`echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && cat patch.txt`), "
+                "or run `exit_abstain` to abstain."
             )
         else:  # intervention == 3
             hint = (
