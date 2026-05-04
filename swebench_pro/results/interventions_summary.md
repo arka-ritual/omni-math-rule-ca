@@ -12,6 +12,46 @@ Legend:
 - **total acc** = `correct / 100` (treats abst + fail + incorrect all as non-correct).
 - **cond acc** = `correct / (100 - abst)` — accuracy excluding deliberate abstentions; runtime failures (`fail`) still count toward the denominator since the model didn't *choose* to skip them.
 
+## Baselines (no consequence framing)
+
+Vanilla `mini-swe-agent` runs with no consequence statement and no
+`exit_abstain` / `submit_confidence` / `submit_preliminary_patch` /
+`finalize_submission` tools — submission is via the upstream
+`COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT` marker. Source:
+`swebench_pro/results/<model>_n100/` (`exit_statuses.yaml` +
+`eval/eval_results.json`). All runs are 100 instances /
+`--reasoning-effort medium`.
+
+There is no `exit_abstain` tool in the baseline, so abstention is not a
+possible action and we report only **total acc** = `correct / 100`.
+Conditional and non-empty variants are intentionally omitted: they are
+either trivially equal to total acc (no abstentions) or would conflate
+the baseline numerator with a different denominator from the one used
+for the per-model intervention deltas below.
+
+| Model | Submitted | Fail (LE+LD) | Correct | Total acc |
+|---|---|---|---|---|
+| claude-haiku-4-5 | 100 | 0 | 35 | **35.0%** (35/100) |
+| gpt-5.4-nano | 82 | 18 | 35 | **35.0%** (35/100) |
+| gemini-3.1-flash-lite-preview | 96 | 4 | 19 | **19.0%** (19/100) |
+| deepseek-v4-pro | 100 | 0 | 41 | **41.0%** (41/100) |
+| qwen3.5-397b-a17b | 93 | 7 | 30 | **30.0%** (30/100) |
+| qwen3.5-9b *(incomplete)* | 15 | 22 | n/a | n/a |
+
+Notes:
+- `gpt-5.4-nano` has one `Submitted` instance with no entry in
+  `eval/eval_results.json` (likely a patch that failed to apply); it is
+  counted as not-correct (`correct=35` out of `submitted=82`).
+- `qwen3.5-9b` is reported here for completeness only: the run logged
+  just 37 of 100 instances (15 `Submitted`, 22 `LoopDetected`) and has
+  no `eval/` directory, so no accuracy can be computed yet. We exclude
+  it from the delta tables below.
+- `deepseek-v4-pro` and `qwen3.5-397b-a17b` only have a partial
+  intervention sweep so far (DeepSeek: `int1` × {`quant_25`, `quant_100`}
+  with 19/21 of 100 instances scored; Qwen-397B: none); we include their
+  baselines here for reference but do not yet add per-model delta tables
+  for them.
+
 ## claude-haiku-4-5
 
 ### Cell breakdown — `correct / incorrect / abst / fail` (n=100)
@@ -49,6 +89,18 @@ Legend:
 | **2 — multi-turn (confidence then reveal)**| 0.0% (0/100) | 1.0% (1/100) | 0.0% (0/100) | 0.0% (0/100) |
 | **3 — multi-turn no-conf**| 0.0% (0/100) | 0.0% (0/100) | 0.0% (0/100) | 0.0% (0/100) |
 | **4 — post-hoc τ(λ)**| 5.0% (5/100) | 17.0% (17/100) | 99.0% (99/100) | 100.0% (100/100) |
+
+### Conditional accuracy delta vs baseline (35.0%)
+
+`intervention.cond_acc - baseline.total_acc`. Anchored on the haiku
+baseline total accuracy of 35.0% (`correct / 100`).
+
+| Intervention | Quant-25 (+1/-5/0) | Quant-100 (+1/-10/0) | QP6 (team-lead) | QP7 (humanity) |
+|---|---|---|---|---|
+| **1 — single-turn multi-step**| -4.0pt | -1.0pt | +2.0pt | -1.0pt |
+| **2 — multi-turn (confidence then reveal)**| -2.0pt | -14.8pt | +3.0pt | -2.0pt |
+| **3 — multi-turn no-conf**| -12.0pt | ±0.0pt | -4.0pt | +2.0pt |
+| **4 — post-hoc τ(λ)**| +0.8pt | +2.3pt | -35.0pt | n/a |
 
 ## gpt-5.4-nano
 
@@ -88,6 +140,18 @@ Legend:
 | **3 — multi-turn no-conf**| 0.0% (0/100) | 0.0% (0/100) | 0.0% (0/100) | 0.0% (0/100) |
 | **4 — post-hoc τ(λ)**| 85.0% (85/100) | 100.0% (100/100) | 100.0% (100/100) | 100.0% (100/100) |
 
+### Conditional accuracy delta vs baseline (35.0%)
+
+`intervention.cond_acc - baseline.total_acc`. Anchored on the
+GPT-5.4-nano baseline total accuracy of 35.0% (`correct / 100`).
+
+| Intervention | Quant-25 (+1/-5/0) | Quant-100 (+1/-10/0) | QP6 (team-lead) | QP7 (humanity) |
+|---|---|---|---|---|
+| **1 — single-turn multi-step**| -3.0pt | -7.0pt | -6.7pt | -1.0pt |
+| **2 — multi-turn (confidence then reveal)**| -9.0pt | -11.0pt | -6.0pt | -10.0pt |
+| **3 — multi-turn no-conf**| -10.0pt | -14.0pt | -8.0pt | -9.0pt |
+| **4 — post-hoc τ(λ)**| +38.3pt | n/a | n/a | n/a |
+
 ## gemini-3.1-flash-lite-preview
 
 ### Cell breakdown — `correct / incorrect / abst / fail` (n=100)
@@ -125,6 +189,19 @@ Legend:
 | **2 — multi-turn (confidence then reveal)**| 1.0% (1/100) | 0.0% (0/100) | 0.0% (0/100) | 0.0% (0/100) |
 | **3 — multi-turn no-conf**| 0.0% (0/100) | 0.0% (0/100) | 1.0% (1/100) | 0.0% (0/100) |
 | **4 — post-hoc τ(λ)**| 9.0% (9/100) | 30.0% (30/100) | 37.0% (37/100) | 41.0% (41/100) |
+
+### Conditional accuracy delta vs baseline (19.0%)
+
+`intervention.cond_acc - baseline.total_acc`. Anchored on the
+gemini-3.1-flash-lite-preview baseline total accuracy of 19.0%
+(`correct / 100`).
+
+| Intervention | Quant-25 (+1/-5/0) | Quant-100 (+1/-10/0) | QP6 (team-lead) | QP7 (humanity) |
+|---|---|---|---|---|
+| **1 — single-turn multi-step**| +5.0pt | +5.2pt | -3.5pt | ±0.0pt |
+| **2 — multi-turn (confidence then reveal)**| +3.2pt | -4.0pt | -4.0pt | +1.0pt |
+| **3 — multi-turn no-conf**| +3.0pt | -1.0pt | +4.2pt | +8.0pt |
+| **4 — post-hoc τ(λ)**| +3.0pt | +6.7pt | +8.0pt | +9.8pt |
 
 ## Cross-model takeaways
 
