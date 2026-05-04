@@ -2,22 +2,26 @@
 # Vanilla baseline sweep for Omni-MATH-Rule using the `standard` prompt.
 #
 # This is the math-side counterpart to `swebench_pro/run_baselines.sh`.
-# It runs `inference/inference_api.py --prompt standard` for each of the 6
+# It runs `inference/inference_api.py --prompt standard` for each of the
 # baseline models, then grades each output JSONL with `evaluation/math_eval.py`.
 #
 # Models (slug | provider | model-id [| openrouter-subprovider]):
+#   - claude-haiku-4-5              | anthropic  | claude-haiku-4-5
 #   - gemini-3.1-flash-lite-preview | openrouter | google/gemini-3.1-flash-lite-preview
+#   - gemini-3-flash-preview        | openrouter | google/gemini-3.0-flash-preview      
+#   - gemini-3.1-pro-preview        | openrouter | google/gemini-3.1-pro-preview
 #   - gpt-5.4-nano                  | openai     | gpt-5.4-nano
 #   - deepseek-v4-pro               | openrouter | deepseek/deepseek-v4-pro | DeepSeek
 #   - qwen3.5-397b                  | openrouter | qwen/qwen3.5-397b-a17b
-#   - qwen3.5-9b                    | openrouter | qwen/qwen3.5-9b              (NEW)
-#   - gemma-4-31b                   | openrouter | google/gemma-4-31b-it        (NEW)
+#   - qwen3.5-122b                  | openrouter | qwen/qwen3.5-122b
+#   - qwen3.5-9b                    | openrouter | qwen/qwen3.5-9b
+#   - gemma-4-31b                   | openrouter | google/gemma-4-31b-it
 #
 # Mirrors `inference/run_interventions.sh` for everything that overlaps
 # (model definitions, env-var defaults, CLI flag style, results-dir layout).
 #
 # Usage:
-#   bash inference/run_baselines.sh                          # all 6 models
+#   bash inference/run_baselines.sh                          # all 10 models
 #   bash inference/run_baselines.sh --model gpt-5.4-nano     # one model only
 #   bash inference/run_baselines.sh --no-eval                # inference only
 #
@@ -38,7 +42,8 @@
 #
 # Required keys in env or in `.env` at the repo root:
 #   OPENAI_API_KEY        (gpt-5.4-nano)
-#   OPENROUTER_API_KEY    (gemini, deepseek, qwen 397B/9B, gemma)
+#   ANTHROPIC_API_KEY     (claude-haiku-4-5)
+#   OPENROUTER_API_KEY    (all gemini variants, deepseek, qwen 397B/122B/9B, gemma)
 
 set -euo pipefail
 
@@ -84,14 +89,18 @@ mkdir -p "$RESULTS_DIR" "$EVAL_DIR"
 # Each line: <slug>|<provider>|<provider-model-id>[|<openrouter-subprovider>]
 # slug feeds the output filename + eval exp_name. The optional 4th field
 # pins OpenRouter to a specific upstream (allow_fallbacks=false). Mirrors
-# the 5-model row-set in inference/run_interventions.sh, plus qwen3.5-9b
-# and gemma-4-31b for the baseline-only model set.
+# the 5-model row-set in inference/run_interventions.sh, plus qwen3.5-9b,
+# gemma-4-31b, gemini-3.0-flash, gemini-3.1-pro, and qwen3.5-122b for the
+# baseline-only model set.
 MODELS=(
     "claude-haiku-4-5|anthropic|claude-haiku-4-5"
     "gemini-3.1-flash-lite-preview|openrouter|google/gemini-3.1-flash-lite-preview"
+    "gemini-3-flash-preview|openrouter|google/gemini-3-flash-preview"
+    "gemini-3.1-pro-preview|openrouter|google/gemini-3.1-pro-preview"
     "gpt-5.4-nano|openai|gpt-5.4-nano"
     "deepseek-v4-pro|openrouter|deepseek/deepseek-v4-pro|DeepSeek"
     "qwen3.5-397b|openrouter|qwen/qwen3.5-397b-a17b"
+    "qwen3.5-122b|openrouter|qwen/qwen3.5-122b-a10b"
     "qwen3.5-9b|openrouter|qwen/qwen3.5-9b"
     "gemma-4-31b|openrouter|google/gemma-4-31b-it"
 )
@@ -116,7 +125,7 @@ echo "  num_samples   = $NUM_SAMPLES   seed=$SEED"
 echo "  temperature   = $TEMPERATURE   max_tokens=$MAX_TOKENS"
 echo "  concurrency   = $CONCURRENCY"
 echo "  data_file     = $DATA_FILE"
-echo "  filter model  = ${ONLY_MODEL:-(all 6)}"
+echo "  filter model  = ${ONLY_MODEL:-(all ${#MODELS[@]})}"
 echo "  do_eval       = $DO_EVAL"
 echo "  results_dir   = $RESULTS_DIR"
 echo "  eval_dir      = $EVAL_DIR"

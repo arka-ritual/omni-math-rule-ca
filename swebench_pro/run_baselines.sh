@@ -57,10 +57,14 @@ RESULTS_ROOT="${RESULTS_ROOT:-swebench_pro/results}"
 
 # ---- model set ---------------------------------------------------------
 ALL_MODELS=(
+    "gemini/gemini-3-flash-preview"
     "gemini/gemini-3.1-flash-lite-preview"
+    "gemini/gemini-3.1-pro-preview"
     "openai/gpt-5.4-nano"
+    "anthropic/claude-haiku-4-5"
     "openrouter/deepseek/deepseek-v4-pro"
     "openrouter/qwen/qwen3.5-397b-a17b"
+    "openrouter/qwen/qwen3.5-122b-a10b"
     "openrouter/qwen/qwen3.5-9b"
     "openrouter/google/gemma-4-31b-it"
 )
