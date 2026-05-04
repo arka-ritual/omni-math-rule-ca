@@ -15,16 +15,20 @@ Legend: c/i/a/m/d = correct/incorrect/abstained/mixed/indeterminate
 Source: `evaluation/output/baselines/<model>/omni-math/math_eval_cot_metrics.json`.
 Run with `--prompt standard` (no abstention permitted, no rubric, no stakes); graded with the **standard** evaluator (`math_eval.py`), which scores accuracy over `num_scores` (`acc = num_correct / num_scores`). `empty` = items with no parsable `\boxed{...}` (counted as incorrect, *not* abstained — the baseline prompt offers no abstain channel).
 
-| Model | Accuracy | n | empty | timeout |
-|---|---|---|---|---|
-| claude-haiku-4-5              | 66.0% | 100 | 0  | 0 |
-| gpt-5.4-nano                  | 42.0% | 100 | 0  | 0 |
-| gemini-3.1-flash-lite-preview | 60.0% | 100 | 0  | 0 |
-| deepseek-v4-pro               | 78.6% | 98  | 13 | 0 |
+| Model | Accuracy | n | empty | timeout | Conditional acc (correct / non-empty) |
+|---|---|---|---|---|---|
+| claude-haiku-4-5              | 66.0% | 100 | 0  | 0 | 66.0% |
+| gpt-5.4-nano                  | 42.0% | 100 | 0  | 0 | 42.0% |
+| gemini-3.1-flash-lite-preview | 60.0% | 100 | 0  | 0 | 60.0% |
+| deepseek-v4-pro               | 78.6% | 98  | 13 | 0 | ≈ 90.6% (77/85) |
+| qwen3.5-397b                  | 83.5% | 97  | 7  | 0 | ≈ 90.0% (81/90) |
+| qwen3.5-9b                    | 53.7% | 95  | 40 | 0 | ≈ 92.7% (51/55) |
+| gemma-4-31b                   | 75.0% | 96  | 0  | 0 | 75.0% |
 
 Notes:
-- `deepseek-v4-pro` had 2 inference-side failures (n=98, not 100) and 13 of the 98 completed responses were `empty_samples` (no parsable `\boxed{...}`). All 13 are scored as incorrect by `math_eval.py`. Conditional accuracy on the 85 items that produced a boxed answer is ≈ `77/85 = 90.6%`, which is the more apples-to-apples comparison vs. the intervention numbers (which exclude both `abstained` and `indeterminate`).
-- The intervention runs above use a slightly larger / different prompt (rubric or qualitative framing inside the system prompt + an explicit abstain channel via `\boxed{UNSURE}`), so accuracy on `n_attempted` for int1 is the closest comparison point to the baseline `acc` here.
+- `n` < 100 means some inference-side failures (transient API errors); `--resume` will fill them in.
+- `empty_samples` are responses with no parsable `\boxed{...}`, which `math_eval.py` counts as **incorrect** under the standard prompt (no abstain channel). The `Conditional acc` column above subtracts those from the denominator and is the closest apples-to-apples comparison vs. the intervention `acc_attempted` numbers (which also exclude responses without a parsable answer). The qwen-9b 40/95 empty rate is striking — it produced a final `\boxed{...}` only ~58% of the time. Most of those empties end mid-thought (the standard prompt doesn't tell the model when to commit) and would likely vanish under any cautious-style prompt.
+- The intervention runs use a slightly different prompt (rubric or qualitative framing inside the system prompt + an explicit abstain channel via `\boxed{UNSURE}`), so accuracy on `n_attempted` for int1 is the closest comparison point to the baseline `acc` here.
 
 ## claude-haiku-4-5
 
@@ -70,6 +74,64 @@ Notes:
 | 2 — multi-turn | 91.0% (c81/i8/a11/m0/d0, n=100) | 95.0% (c76/i4/a18/m0/d2, n=100) | 94.3% (c82/i5/a12/m0/d1, n=100) | 96.2% (c77/i3/a15/m0/d1, n=96) |
 | 3 — multi-turn no-conf | 92.0% (c81/i7/a12/m0/d0, n=100) | 91.5% (c75/i7/a18/m0/d0, n=100) | 95.1% (c78/i4/a18/m0/d0, n=100) | 93.1% (c81/i6/a10/m0/d1, n=98) |
 | 4 — post-hoc τ(λ) | 93.7% (c59/i4/a37/m0/d0, n=100) | 89.8% (c44/i5/a51/m0/d0, n=100) | 88.5% (c46/i6/a48/m0/d0, n=100) | 97.1% (c33/i1/a65/m0/d0, n=99) |
+
+## Δ vs baseline (intervention `acc_attempted` − baseline `acc`, percentage points)
+
+Each cell shows `delta  (acc_attempted)`. Positive = consequence framing produces higher accuracy on attempted problems than the standard prompt did over its own n. Baseline anchor for each model is the `acc` field from `evaluation/output/baselines/<model>/omni-math/math_eval_cot_metrics.json`.
+
+Caveats:
+- Baseline `acc` and intervention `acc_attempted` use slightly different denominators — baseline counts `empty_samples` as incorrect, while interventions exclude `abstained`/`indeterminate`. Direct subtraction is therefore an approximation, not a strict apples-to-apples comparison.
+- `deepseek-v4-pro` and `qwen3.5-397b` baselines are deflated by `empty_samples` (responses with no parsable `\boxed{...}`); their delta tables below are anchored on the **conditional** baseline (correct / non-empty) instead of the raw `acc`, matching what the intervention `acc_attempted` already does on its side. The other models have 0 empty samples in baseline so the two anchors coincide.
+
+### claude-haiku-4-5  (baseline = 66.0%)
+
+| Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
+|---|---|---|---|---|
+| 1 — single-turn multi-step | +1.9  (67.9%) | +0.7  (66.7%) | +6.4  (72.4%) | -2.0  (64.0%) |
+| 2 — multi-turn | +16.5  (82.5%) | +9.8  (75.8%) | +13.7  (79.7%) | +10.1  (76.1%) |
+| 3 — multi-turn no-conf | +11.3  (77.3%) | +11.6  (77.6%) | +18.4  (84.4%) | +14.8  (80.8%) |
+| 4 — post-hoc τ(λ) | +26.3  (92.3%) | n/a (a=0) | n/a (a=0) | n/a (a=0) |
+
+### gpt-5.4-nano  (baseline = 42.0%)
+
+| Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
+|---|---|---|---|---|
+| 1 — single-turn multi-step | +26.2  (68.2%) | +17.6  (59.6%) | +19.9  (61.9%) | +19.6  (61.6%) |
+| 2 — multi-turn | +41.3  (83.3%) | +27.6  (69.6%) | +58.0  (100.0%) | +42.6  (84.6%) |
+| 3 — multi-turn no-conf | +35.4  (77.4%) | +22.3  (64.3%) | +58.0  (100.0%) | +33.0  (75.0%) |
+| 4 — post-hoc τ(λ) | +38.0  (80.0%) | n/a (a=0) | n/a (a=0) | n/a (a=0) |
+
+### gemini-3.1-flash-lite-preview  (baseline = 60.0%)
+
+| Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
+|---|---|---|---|---|
+| 1 — single-turn multi-step | +9.6  (69.6%) | +5.9  (65.9%) | -0.6  (59.4%) | -1.2  (58.8%) |
+| 2 — multi-turn | +19.4  (79.4%) | +16.5  (76.5%) | +11.6  (71.6%) | +7.8  (67.8%) |
+| 3 — multi-turn no-conf | +16.0  (76.0%) | +15.4  (75.4%) | +7.5  (67.5%) | +4.8  (64.8%) |
+| 4 — post-hoc τ(λ) | +31.7  (91.7%) | +24.2  (84.2%) | +20.0  (80.0%) | +27.5  (87.5%) |
+
+### deepseek-v4-pro  (conditional baseline = 90.6%, from raw acc=78.6% on 98 samples with 13 empty)
+
+Anchored on the **conditional** baseline (77 correct / 85 non-empty), matching the qwen3.5-397b table below — the apples-to-apples comparison with intervention `acc_attempted` (which also excludes responses with no parsable answer). Using the raw `acc=78.6%` would inflate every delta below by ~12 pts and obscure the fact that for some cells the framing is roughly break-even or marginally negative on attempted accuracy.
+
+| Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
+|---|---|---|---|---|
+| 1 — single-turn multi-step | +3.7  (94.3%) | +5.9  (96.5%) | +5.0  (95.6%) | +3.4  (94.0%) |
+| 2 — multi-turn | +0.4  (91.0%) | +4.4  (95.0%) | +3.7  (94.3%) | +5.6  (96.2%) |
+| 3 — multi-turn no-conf | +1.4  (92.0%) | +0.9  (91.5%) | +4.5  (95.1%) | +2.5  (93.1%) |
+| 4 — post-hoc τ(λ) | +3.1  (93.7%) | -0.8  (89.8%) | -2.1  (88.5%) | +6.5  (97.1%) |
+
+
+### qwen3.5-397b  (conditional baseline = 90.0%, from raw acc=83.5% on 97 samples with 7 empty)
+
+Anchored on the **conditional** baseline (correct / non-empty), which is the apples-to-apples comparison vs. the intervention `acc_attempted` numbers (which also exclude responses with no parsable answer). Using the raw `acc=83.5%` would inflate every delta below by ~6.5 pts.
+
+| Intervention | Quant-25 | Quant-100 | QP6 | QP7 |
+|---|---|---|---|---|
+| 1 — single-turn multi-step | -3.2  (86.8%) | -3.8  (86.2%) | -3.3  (86.7%) | -10.2  (79.8%) |
+| 2 — multi-turn | +5.1  (95.1%) | +4.0  (94.0%) | +4.0  (94.0%) | +1.6  (91.6%) |
+| 3 — multi-turn no-conf | -0.6  (89.4%) | +1.3  (91.3%) | +2.3  (92.3%) | +1.4  (91.4%) |
+| 4 — post-hoc τ(λ) | +2.8  (92.8%) | +0.2  (90.2%) | +2.7  (92.7%) | +0.2  (90.2%) |
 
 ## Abstention rate (`num_abstained / num_total`)
 
