@@ -44,9 +44,5 @@ Rubric format: `(r_correct, r_abstain, r_incorrect)`.
 |---|---:|---:|---:|---|
 | `(+1,  0,   −1)`   | 28.0% | 0.0% |  −7.0 | c28 / i45 / a0 / f27, n=100 |
 | `(+1,  0,   −5)`   | 27.0% | 0.0% |  −8.0 | c27 / i49 / a0 / f24, n=100 |
-| `(+1,  0,  −10)`†  |   n/a |  n/a |   n/a | c0 / i2 / a0 / f0, n=2 (incomplete) |
+| `(+1,  0,  −10)`   | 36.0% | 0.0% |  +1.0 | c36 / i44 / a0 / f20, n=100 |
 | `(−1, +10, −10)`   | **32.0%** | 0.0% |  −3.0 | c32 / i45 / a0 / f23, n=100 |
-
-† `quant1_-10_0` only logged 2 of 100 instances (the run did not complete);
-results are reported for transparency but are not comparable to the other
-cells.
