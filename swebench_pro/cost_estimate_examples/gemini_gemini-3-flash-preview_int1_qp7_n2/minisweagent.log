@@ -1,0 +1,6 @@
+2026-05-06 11:13:51,867 - minisweagent - INFO - [reasoning] gemini: reasoning_effort='medium'
+2026-05-06 11:13:51,868 - minisweagent - INFO - Final model_kwargs (reasoning_effort=medium): {'drop_params': True, 'temperature': 0.0, 'parallel_tool_calls': True, 'timeout': 600.0, 'reasoning_effort': 'medium'}
+2026-05-06 11:13:51,869 - minisweagent - INFO - Intervention: id=1 prompt_config=qp7 rubric=(None,None,None)
+2026-05-06 11:13:51,872 - minisweagent - INFO - Loaded 100 instances from swebench_pro/data/swebench_pro_full.jsonl; sampled 2 (seed=100, limit=2)
+2026-05-06 11:13:54,377 - minisweagent.environment - INFO - Started container minisweagent-855d1d95 with ID f9bb26c780e312f0391d4c7896f387236e595f0370630622c79772ee83684a0a
+2026-05-06 11:13:54,434 - minisweagent.environment - INFO - Started container minisweagent-4d2db544 with ID ec28e42804b6baa3505ad89a2022f03591a45f604b2d71e5193d4c0ad8240076

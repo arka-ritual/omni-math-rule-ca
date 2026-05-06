@@ -1,0 +1,12 @@
+{
+  "instance_gravitational__teleport-47530e1fd8bfb84ec096ebcbbc29990f30829655-vee9b09fb20c43af7e520f57e9239bbcf46b7113d": {
+    "model_name_or_path": "openai/gpt-5.4",
+    "instance_id": "instance_gravitational__teleport-47530e1fd8bfb84ec096ebcbbc29990f30829655-vee9b09fb20c43af7e520f57e9239bbcf46b7113d",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-1501eb765873b2884b6f1944fd242ecfc9d6b103": {
+    "model_name_or_path": "openai/gpt-5.4",
+    "instance_id": "instance_protonmail__webclients-1501eb765873b2884b6f1944fd242ecfc9d6b103",
+    "model_patch": ""
+  }
+}
