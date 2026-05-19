@@ -22,13 +22,17 @@ The experiments use **Omni-MATH-Rule** as the testbed — a subset of 2,821 Olym
 ```
 omni_math_rule.jsonl              # Main dataset (2,821 problems)
 inference/
-  inference_api.py                # API-based inference CLI (OpenAI, Anthropic, Google, OpenRouter)
+  inference_api.py                # API-based inference CLI (OpenAI, Anthropic, Google, OpenRouter, vLLM)
   inference_api_swe.py            # SWE-bench Pro variant — generates code patches instead of math answers
-  inference_vllm.py               # vLLM inference for open-source models
-  prompts.py                      # 9 prompt presets: standard, cautious, ultra_cautious,
+  inference_vllm.py               # vLLM inference for open-source models (supports --lora_adapter)
+  fewshot.py                      # 4-shot preamble scaffolding in 7 variants (normal, no_conseq,
+                                  #   conseq_{no,random,correct}_abstain, conseq_always_{submit,abstain})
+                                  #   — works for both base and instruct models
+  prompts.py                      # 17 prompt presets: standard, cautious, ultra_cautious,
+                                  #   QP1..QP7 (paper rubric variants),
                                   #   reward_lives_1_10, reward_lives_1_humanity,
                                   #   natural_grading, natural_grading_2,
-                                  #   quant_m25, quant_m100 (explicit numeric penalties)
+                                  #   quant_m25, quant_m100, quantitative_grading (factory)
   providers/                      # API provider implementations
     openai_provider.py            # GPT models (Chat Completions + Responses API)
     anthropic_provider.py         # Claude models (streaming messages)
@@ -43,6 +47,11 @@ inference/
   results/                        # Inference output JSONL files (one per run)
   inference.sh                    # vLLM inference script template
   inference_api.sh                # API inference + cautious evaluation pipeline
+  run_baselines.sh                # Vanilla baseline sweep across 10 hosted/OR models
+  run_qwen35_9b.sh                # Local vLLM + Qwen 3.5 9B base/instruct sweep
+  run_gemma4_e2b_it_fewshot.sh    # Gemma 4 E2B *instruct* x fewshot variants sweep
+                                  #   (companion to the base-model sweep in run_qwen35_9b.sh)
+  run_interventions.py / .sh      # Multi-turn intervention runners
   sequential_codex.sh             # Sequential environment via Codex CLI
   sequential_claude_code.sh       # Sequential environment via Claude Code CLI
 evaluation/
@@ -67,13 +76,20 @@ evaluation/
     eval_l3.sh                    #   L3 model evaluation (vLLM inference + grading)
     run_eval_qwen2_math.sh        #   Qwen2-Math evaluation
 scripts/                          # Fine-tuning and data pipeline scripts
-  abstention_ft_make_splits.py    # Splits omni_math_rule.jsonl into train_candidates / eval500
+  abstention_ft_make_splits.py    # Splits omni_math_rule.jsonl into train_candidates / eval
   abstention_ft_label_standard.py # Grades train_candidates responses; adds is_correct + extracted_answer
-  abstention_ft_build_train_data.py # Builds SFT/DPO training files for each rubric × prefix_k × size combo
-  abstention_ft_train_sft.py      # LoRA SFT (4-bit NF4 quant, r=16, loss on assistant tokens only)
-  abstention_ft_train_dpo.py      # LoRA DPO via TRL (β=0.1, implicit reference from LoRA init)
-  abstention_ft_aggregate.py      # Aggregates cautious_metrics.json files into summary CSV + Markdown table
-  abstention_ft_run_commands.sh   # Orchestration script for the full fine-tuning pipeline (stages 1–7)
+  abstention_ft_build_train_data.py # Builds SFT/DPO/SFT-box training files across the
+                                  #   (n × p_abst × rubric × prefix_k × method) grid;
+                                  #   supports mix rubrics (e.g. mix_m25_m100) and partial cells
+  abstention_ft_train_sft.py      # SFT trainer: --peft_mode {qlora,full}, --max_grad_norm,
+                                  #   --lora_r/alpha, --learning_rate_full (qlora = 4-bit NF4 + LoRA r=16)
+  abstention_ft_train_sft_box.py  # SFT variant: supervise only the box-answer suffix on correct rows
+  abstention_ft_train_dpo.py      # DPO trainer (TRL): same --peft_mode/grad-norm knobs as SFT
+  abstention_ft_fix_lora_keys.py  # Rename PEFT adapter keys so vLLM can load Qwen3.5 adapters
+  abstention_ft_aggregate.py      # Aggregates cautious_metrics.json across variants
+                                  #   (parses tune_mode + abstention_pct + mix_* rubrics)
+  abstention_ft_run_commands.sh   # Orchestrates the full pipeline (label → build → train → eval)
+  compare_fewshot_instruct_vs_base.py # Instruct-vs-base x fewshot side-by-side markdown table
 data/
   abstention_ft/                  # Generated SFT/DPO training files (per model, rubric, size, method)
     eval500.jsonl                 # 500 held-out eval problems (from omni_math_rule.jsonl idx split)
@@ -156,20 +172,42 @@ Inference is **resume-safe** — rerun the same command to skip already-complete
 
 ### 2. Prompt Presets
 
-Available presets: `standard`, `cautious`, `ultra_cautious`, `reward_lives_1_10`, `reward_lives_1_humanity`, `natural_grading`, `natural_grading_2`, `quant_m25`, `quant_m100`.
+Available presets:
+- **Standard / cautious family**: `standard`, `cautious`, `ultra_cautious`
+- **Paper QP1..QP7 rubrics**: `QP1` (no_conseq), `QP2` (catastrophic), `QP3` (career), `QP4` (fired), `QP5` (decommissioned), `QP6` (professor fail), `QP7` (humanity)
+- **Reward-framing**: `reward_lives_1_10`, `reward_lives_1_humanity`
+- **Natural-grading**: `natural_grading`, `natural_grading_2`
+- **Quantitative**: `quant_m25` (+1/−25/0), `quant_m100` (+1/−100/0), `quantitative_grading` (default +1/−10/0)
+- **Quantitative factory**: call `build_quantitative_grading(r_c, r_i, r_a)` for arbitrary rubrics at runtime, or pass `--prompt quantitative_grading --rubric_correct ... --rubric_incorrect ... --rubric_abstain ...` to `inference_api.py`.
 
 See `inference/prompts.py` for the full text of each prompt. New presets can be added directly to the `PROMPTS` dict in that file. Alternatively, pass arbitrary prompt text at runtime via `--system-prompt`.
 
-### 3. vLLM Inference (NOT YET INTEGRATED)
+### 3. vLLM Inference (Local Open-Source Models)
 
-Inherited from the original Omni-MATH repo. This uses a hardcoded Qwen system prompt and is **not integrated with the consequence asymmetry prompt presets**. Useful only for baseline accuracy runs with open-source models.
+Two ways to drive open-source models locally:
 
+**(a) Direct vLLM batch script** — uses `inference/prompts.py` presets, supports LoRA adapters, used by the fine-tuning eval loop:
 ```bash
 python inference/inference_vllm.py \
-  --model /path/to/model \
+  --model google/gemma-4-E2B-it \
   --data_file omni_math_rule.jsonl \
-  --tensor_parallel_size 8 \
-  --save_path inference/results/output.jsonl
+  --save_path inference/results/output.jsonl \
+  --prompt ultra_cautious \
+  --tensor_parallel_size 1 \
+  --max_model_len 8192 --max_tokens 8192 \
+  --gpu_memory_utilization 0.95 \
+  --enable_thinking
+  # Optional: --lora_adapter checkpoints/.../adapter_dir
+```
+
+**(b) vLLM OpenAI-compatible server + `inference_api.py --provider vllm`** — auto-detects base vs instruct models (chat-completions vs `/v1/completions`), supports `--fewshot_variant`, used by `run_qwen35_9b.sh` and `run_gemma4_e2b_it_fewshot.sh`:
+```bash
+vllm serve google/gemma-4-E2B-it --port 8000 --max-model-len 32768 &
+python inference/inference_api.py --provider vllm \
+  --model google/gemma-4-E2B-it \
+  --prompt ultra_cautious \
+  --save_path inference/results/gemma-it-uc.jsonl \
+  --num_samples 100
 ```
 
 ### 4. Standard Evaluation
@@ -334,34 +372,220 @@ python evaluation/swe_eval_cautious.py ...  # 3-way: applied / skipped / mixed
 
 ### 11. Abstention Fine-Tuning Pipeline
 
-Teaches models to output `\boxed{UNSURE}` on problems they would get wrong. The pipeline is orchestrated by `scripts/abstention_ft_run_commands.sh` but **most stages are commented out** — only evaluation runs actively.
+Teaches models to output `\boxed{UNSURE}` on problems they would get wrong. Driven by `scripts/abstention_ft_run_commands.sh`, which orchestrates label generation → data build → training → eval → aggregation.
 
-**Full intended pipeline (uncomment to run):**
+**Pipeline stages:**
 
 | Stage | Script | What it does |
 |---|---|---|
-| 1 | `scripts/abstention_ft_make_splits.py` | Splits dataset: 500 → `eval500.jsonl`, 2,321 → `train_candidates.jsonl` |
-| 2 | `inference/inference_vllm.py` (×2) | Labels train candidates with vLLM; outputs to `inference/results/abstention_ft/` |
-| 3 | `scripts/abstention_ft_label_standard.py` | Grades generated responses; adds `is_correct`, `extracted_answer`, `classification` |
-| 4 | `scripts/abstention_ft_build_train_data.py` | Builds SFT/DPO files for each rubric × prefix_k × size combo (see below) |
-| 5a | `scripts/abstention_ft_train_sft.py` | LoRA SFT: 4-bit NF4 quant, r=16/α=32, loss on assistant tokens only, 3 epochs |
-| 5b | `scripts/abstention_ft_train_dpo.py` | LoRA DPO: β=0.1, implicit reference from LoRA init, same quant/schedule as SFT |
-| 6 | `evaluation/math_eval*.py` | Standard + cautious + natural evaluation across all variants |
-| 7 | `scripts/abstention_ft_aggregate.py` | Reads all `cautious_metrics.json` files; outputs summary CSV + Markdown table |
+| 1 | `scripts/abstention_ft_make_splits.py` | Splits dataset into `eval.jsonl` (held-out) / `train_candidates.jsonl` |
+| 2 | `inference/inference_vllm.py` | Labels train candidates with vLLM under the `standard` prompt |
+| 3 | `scripts/abstention_ft_label_standard.py` | Grades the labels; adds `is_correct`, `extracted_answer`, `classification` |
+| 4 | `scripts/abstention_ft_build_train_data.py` | Builds SFT/DPO/SFT-box files across the full grid (see dimensions below) |
+| 5a | `scripts/abstention_ft_train_sft.py` | SFT trainer: `--peft_mode {qlora,full}`, `--max_grad_norm`, etc. |
+| 5b | `scripts/abstention_ft_train_sft_box.py` | SFT variant: supervise only the box-answer suffix on correct rows |
+| 5c | `scripts/abstention_ft_train_dpo.py` | DPO trainer (TRL β=0.1), same `--peft_mode` knobs |
+| 6 | `inference/inference_vllm.py` + `evaluation/math_eval_cautious.py` | Per-variant generation + cautious eval across multiple held-out prompts |
+| 7 | `scripts/abstention_ft_aggregate.py` | Cross-variant summary CSV + Markdown table |
 
-**Training data build (`abstention_ft_build_train_data.py`) dimensions:**
-- **Rubric**: `quant_m25` (+1/0/−25) or `quant_m100` (+1/0/−100)
-- **prefix_k**: 0 or 256 — tokens of the model's own reasoning prefixed before the abstention string
-- **Size**: 20, 100, or 500 examples (n/2 correct + n/2 incorrect)
-- **Method**: `sft` (correct → attempt, incorrect → `\boxed{UNSURE}`) or `dpo` (chosen/rejected pairs)
-- Output: one JSONL per combination under `data/abstention_ft/{model_slug}/`
+**Training-data build dimensions** (all axes are independent — the build script writes one file per cell):
 
-**Checkpoints** saved to `checkpoints/abstention_ft/` per combination.
+| Axis | CLI flag | Values used in practice |
+|---|---|---|
+| **Method** | `--methods` | `sft`, `dpo`, `sft_box` |
+| **Rubric** | `--rubrics` | `quant_m25` (+1/0/−25), `quant_m100` (+1/0/−100), `mix_m25_m100` (per-row sampled mix) |
+| **Size** | `--sizes` | e.g. `250 500 1000` |
+| **Abstention proportion** | `--abstention_fractions` | e.g. `0.25 0.5 0.75` (fraction of rows whose target is the abstention string) |
+| **Prefix k** | `--prefix_ks` | e.g. `512 1024` (tokens of the model's own reasoning prefixed before `\boxed{UNSURE}`) |
+| **Max seq length** | `--max_seq_length` | filter eligibility; 16384 used for the current Gemma 4 E2B grid |
+| **Allow partial** | `--allow_partial` | skip cells whose label budget can't satisfy the (n, p_abst) split |
+
+Output filename convention: `{method}_n{N}_{rubric}_k{K}_p{PP}.jsonl` in `data/abstention_ft/{model_slug}/`.
+
+**Tune-mode** (set on each trainer via `--peft_mode`):
+- `qlora` (default): 4-bit NF4 quant + LoRA r=16/α=32, paged 8-bit Adam, 3 epochs, lr=2e-5
+- `full`: bf16 full FT, gradient checkpointing enabled automatically, lr override via `--learning_rate_full` (typically 2e-6 for a 2B model)
+
+**Other train-side knobs** (now exposed on all three trainers; previously hardcoded):
+- `--max_grad_norm` (default 1.0; the run script defaults to **5.0** since the previous 1.0 cap was suspected of clipping benign-but-large grads)
+- `--lora_r` / `--lora_alpha`
+- `--learning_rate_full` (full-FT-only LR override)
+
+**Variant slug convention** (used everywhere downstream):
+```
+{base}_{tune}_{method}_n{N}_{rubric}_k{K}_p{PP}
+e.g. gemma4_e2b_qlora_sft_n1000_quant_m25_k512_p50
+     gemma4_e2b_full_dpo_n500_mix_m25_m100_k1024_p75
+```
+The aggregator parses this format and is also backward-compatible with legacy slugs (`{base}_{method}_n{N}_{rubric}_k{K}`, treated as `tune=qlora, p=50`).
+
+**Checkpoints** saved to `checkpoints/abstention_ft/{model_slug}/{tune}_{method}_n{N}_{rubric}_k{K}_p{PP}/`.
 
 **Aggregate success criteria** (from `abstention_ft_aggregate.py`):
-- ≤ 2pp accuracy drop vs. baseline on standard prompt
-- ≤ 1% spurious abstention on standard prompt  
-- Positive utility gain under the target rubric: `(correct − penalty×incorrect) / 500`
+- ≤ 2pp accuracy drop vs. baseline on `standard` prompt
+- ≤ 1% spurious abstention on `standard` prompt
+- Positive utility gain under the target rubric: `(correct − penalty×incorrect) / total_eval`
+
+#### Running the fine-tuning experiments
+
+All commands assume the project venv is active and you're at repo root.
+
+**One-shot full grid** (label → build → train all cells → eval all variants × 5 prompts → aggregate):
+```bash
+TRAIN_MAX_SEQ_LENGTH=16384 GRAD_NORM=5.0 bash scripts/abstention_ft_run_commands.sh
+```
+With the script's current defaults the cross-product is `2 tune × 2 rubric × 2 k × 3 n × 3 p × 3 method = 216` checkpoints. Trim arrays in the script for shorter sweeps.
+
+**Build the dataset grid in one pass** (fast; reuse the JSONLs for any subsequent training command):
+```bash
+python scripts/abstention_ft_build_train_data.py \
+  --labeled data/abstention_ft/gemma4_e2b/labeled_standard.jsonl \
+  --model_slug gemma4_e2b \
+  --base_model google/gemma-4-E2B-it \
+  --max_seq_length 16384 \
+  --sizes 250 500 1000 \
+  --abstention_fractions 0.25 0.5 0.75 \
+  --rubrics quant_m25 quant_m100 mix_m25_m100 \
+  --prefix_ks 512 1024 \
+  --methods sft dpo sft_box \
+  --allow_partial \
+  --seed 42
+```
+
+**Grad-norm diagnostic** (run before committing to a `--max_grad_norm` default):
+```bash
+python scripts/abstention_ft_train_sft.py \
+  --base_model google/gemma-4-E2B-it \
+  --train_file data/abstention_ft/gemma4_e2b/sft_n500_quant_m25_k512_p50.jsonl \
+  --output_dir checkpoints/abstention_ft/_diag/grad_norm_unclipped \
+  --max_seq_length 16384 \
+  --peft_mode qlora \
+  --max_grad_norm 1e9 \
+  --logging_steps 1
+
+# Then inspect the natural pre-clip distribution:
+python3 -c "
+import json, statistics
+state = json.load(open('checkpoints/abstention_ft/_diag/grad_norm_unclipped/trainer_state.json'))
+norms = [x['grad_norm'] for x in state['log_history'] if 'grad_norm' in x]
+print(f'count={len(norms)}  median={statistics.median(norms):.2f}  '
+      f'p90={sorted(norms)[int(0.9*len(norms))]:.2f}  '
+      f'p99={sorted(norms)[int(0.99*len(norms))]:.2f}  max={max(norms):.2f}')
+"
+```
+
+**Axis A — abstention proportion × dataset size** (single (tune, rubric, k, method) cell so only `n` and `p_abst` vary):
+```bash
+for n in 250 500 1000; do
+  for p in 25 50 75; do
+    train_file="data/abstention_ft/gemma4_e2b/sft_n${n}_quant_m25_k512_p${p}.jsonl"
+    [[ -s "$train_file" ]] || { echo "skip (no train file): n=$n p=$p"; continue; }
+    out_dir="checkpoints/abstention_ft/_axisA/sft_n${n}_quant_m25_k512_p${p}_qlora"
+    [[ -e "$out_dir/adapter_config.json" ]] && { echo "skip (done): $out_dir"; continue; }
+    python scripts/abstention_ft_train_sft.py \
+      --base_model google/gemma-4-E2B-it \
+      --train_file "$train_file" \
+      --output_dir "$out_dir" \
+      --max_seq_length 16384 \
+      --peft_mode qlora \
+      --max_grad_norm 5.0
+  done
+done
+```
+
+**Axis B — full-FT vs QLoRA head-to-head** (same training data, only `--peft_mode` differs):
+```bash
+TRAIN_FILE=data/abstention_ft/gemma4_e2b/sft_n500_quant_m25_k512_p50.jsonl
+
+python scripts/abstention_ft_train_sft.py \
+  --base_model google/gemma-4-E2B-it \
+  --train_file "$TRAIN_FILE" \
+  --output_dir checkpoints/abstention_ft/_axisB/qlora_sft_n500_quant_m25_k512_p50 \
+  --max_seq_length 16384 --peft_mode qlora --max_grad_norm 5.0
+
+python scripts/abstention_ft_train_sft.py \
+  --base_model google/gemma-4-E2B-it \
+  --train_file "$TRAIN_FILE" \
+  --output_dir checkpoints/abstention_ft/_axisB/full_sft_n500_quant_m25_k512_p50 \
+  --max_seq_length 16384 --peft_mode full \
+  --learning_rate_full 2e-6 --max_grad_norm 5.0
+```
+Memory note: full FT of Gemma 4 E2B in bf16 + gradient checkpointing + paged 8-bit Adam sits around 25–35 GB on an 80GB A100.
+
+**Axis C — multi-rubric (mix) training**:
+```bash
+python scripts/abstention_ft_train_sft.py \
+  --base_model google/gemma-4-E2B-it \
+  --train_file data/abstention_ft/gemma4_e2b/sft_n1000_mix_m25_m100_k512_p50.jsonl \
+  --output_dir checkpoints/abstention_ft/_axisC/qlora_sft_n1000_mix_m25_m100_k512_p50 \
+  --max_seq_length 16384 --peft_mode qlora --max_grad_norm 5.0
+```
+To check whether the model learned **rubric-conditional** abstention rather than "always abstain when uncertain," compare its abstention rate under `quant_m25` (lighter penalty) vs `quant_m100` (heavier penalty) — the gap should widen relative to a single-rubric baseline.
+
+**Per-checkpoint eval** (one inference run + cautious score per prompt):
+```bash
+gen_args=(--temperature 1.0 --top_p 1.0 --top_k -1 --max_tokens 8192
+          --max_model_len 8192 --seed 42 --batch_size 512
+          --tensor_parallel_size 1 --enable_thinking
+          --gpu_memory_utilization 0.95 --max_num_batched_tokens 65536)
+
+CKPT_DIR=checkpoints/abstention_ft/_axisA/sft_n500_quant_m25_k512_p50_qlora
+VARIANT=$(basename "$CKPT_DIR")
+
+for prompt in quant_m25 quant_m100 ultra_cautious QP4 QP7; do
+  python inference/inference_vllm.py \
+    --model google/gemma-4-E2B-it \
+    --lora_adapter "$CKPT_DIR" \
+    --data_file data/abstention_ft/eval.jsonl \
+    --save_path "inference/results/abstention_ft/${VARIANT}__${prompt}.jsonl" \
+    --prompt "$prompt" \
+    "${gen_args[@]}"
+
+  python evaluation/math_eval_cautious.py \
+    --data_file "inference/results/abstention_ft/${VARIANT}__${prompt}.jsonl" \
+    --output_dir "evaluation/output/abstention_ft/${VARIANT}__${prompt}"
+done
+```
+For a **full-FT** checkpoint, drop `--lora_adapter` and replace `--model google/gemma-4-E2B-it` with `--model "$CKPT_DIR"`.
+
+**Aggregate**:
+```bash
+for prompt in quant_m25 quant_m100 ultra_cautious QP4 QP7; do
+  python scripts/abstention_ft_aggregate.py \
+    --results_dir inference/results/abstention_ft \
+    --output_root evaluation/output/abstention_ft \
+    --prompt "$prompt" \
+    --summary_csv "evaluation/output/abstention_ft/summary_${prompt}.csv" \
+    --summary_md  "evaluation/output/abstention_ft/summary_${prompt}.md"
+done
+```
+The CSV/MD includes `tune_mode` and `abstention_pct` columns alongside `train_size`, `train_rubric`, `prefix_k`, abstention rate, attempted accuracy, and per-rubric utility.
+
+### 12. Few-Shot Preamble on Instruct Models
+
+`inference/fewshot.py` provides a 4-shot preamble in 7 variants (`normal`, `no_conseq`, `conseq_no_abstain`, `conseq_random_abstain`, `conseq_correct_abstain`, `conseq_always_submit`, `conseq_always_abstain`). The same scaffolding works on both base and instruct models — when `--fewshot_variant` is passed to `inference_api.py`, it clears the system prompt and packs `preamble + format_query(...)` into the user message with stop sequences `["\nQ:", "\n\nQ:"]`. For chat-completions endpoints the chat template wraps the whole thing in role markers; for `/v1/completions` (`--base_model`) it's sent as a raw autocomplete.
+
+**Sweep Gemma 4 E2B *instruct* across all variants:**
+```bash
+bash inference/run_gemma4_e2b_it_fewshot.sh                       # defaults: ultra_cautious x 7 variants, n=100
+PROMPTS="ultra_cautious QP4 QP7" bash inference/run_gemma4_e2b_it_fewshot.sh
+NUM_SAMPLES=20 VARIANTS="normal conseq_correct_abstain" bash inference/run_gemma4_e2b_it_fewshot.sh
+SKIP_EXISTING=0 bash inference/run_gemma4_e2b_it_fewshot.sh        # force rerun
+```
+
+The script handles vLLM server boot (or reuses an existing one), runs `(prompt × variant)` cells through `inference_api.py --provider vllm`, scores each with `math_eval_cautious.py`, and at the end calls `scripts/compare_fewshot_instruct_vs_base.py` to produce a side-by-side markdown table:
+
+```bash
+python scripts/compare_fewshot_instruct_vs_base.py \
+  --prompts ultra_cautious QP4 \
+  --variants normal no_conseq conseq_no_abstain conseq_random_abstain \
+             conseq_correct_abstain conseq_always_submit conseq_always_abstain \
+  --instruct_slug gemma-4-E2B-it \
+  --base_slug gemma-4-E2B \
+  --output_md evaluation/output/gemma-4-E2B-it-fewshot_vs_base.md
+```
+
+Each cell reports **abstention rate** (fraction of all problems where the model produced `\boxed{UNSURE}`, the `Answer/Abstain decision: ABSTAIN` marker, or no `\boxed{}` in a non-truncated response) and **selective accuracy** on the attempted subset (`correct / (correct + incorrect)`).
 
 
 ## Results Summary
