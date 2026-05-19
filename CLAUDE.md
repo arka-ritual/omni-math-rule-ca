@@ -23,37 +23,64 @@ The experiments use **Omni-MATH-Rule** as the testbed — a subset of 2,821 Olym
 omni_math_rule.jsonl              # Main dataset (2,821 problems)
 inference/
   inference_api.py                # API-based inference CLI (OpenAI, Anthropic, Google, OpenRouter)
+  inference_api_swe.py            # SWE-bench Pro variant — generates code patches instead of math answers
   inference_vllm.py               # vLLM inference for open-source models
-  prompts.py                      # 8 prompt presets (standard, cautious, ultra_cautious, etc.)
+  prompts.py                      # 9 prompt presets: standard, cautious, ultra_cautious,
+                                  #   reward_lives_1_10, reward_lives_1_humanity,
+                                  #   natural_grading, natural_grading_2,
+                                  #   quant_m25, quant_m100 (explicit numeric penalties)
   providers/                      # API provider implementations
     openai_provider.py            # GPT models (Chat Completions + Responses API)
     anthropic_provider.py         # Claude models (streaming messages)
     google_provider.py            # Gemini models
     openrouter_provider.py        # OpenRouter (OpenAI-compatible)
-  sequential_agent.py             # Sequential adaptive testing agent
-  sequential_run.py               # Adaptive environment runner
-  sequential/                     # Sequential environment package (state, formatter, environment)
-  results/                        # Inference output JSONL files
+  sequential_agent.py             # Step-by-step CLI for external agent integrations
+  sequential_run.py               # Full sequential adaptive environment runner
+  sequential/                     # Sequential environment package
+    environment.py                #   SequentialEnvironment: question loop, state save/resume, escalating warnings
+    state.py                      #   ScoringRubric and StepRecord data structures
+    formatter.py                  #   System + history prompt construction
+  results/                        # Inference output JSONL files (one per run)
   inference.sh                    # vLLM inference script template
-  inference_api.sh                # API inference script template
-  sequential_codex.sh             # Codex CLI integration
-  sequential_claude_code.sh       # Claude Code integration
+  inference_api.sh                # API inference + cautious evaluation pipeline
+  sequential_codex.sh             # Sequential environment via Codex CLI
+  sequential_claude_code.sh       # Sequential environment via Claude Code CLI
 evaluation/
-  math_eval.py                    # Standard evaluator
-  math_eval_cautious.py           # Cautious 3-way evaluator (correct/incorrect/abstained)
-  math_eval_natural.py            # Natural grading evaluator (heuristic answer extraction for non-boxed responses)
-  math_eval_sequential.py         # Sequential environment evaluator (oracle/naive scores, adaptation metrics)
-  math_eval_l3.py                 # L3 evaluator variant
+  math_eval.py                    # Standard accuracy evaluator
+  math_eval_cautious.py           # 3-way evaluator: correct / incorrect / abstained (\boxed{UNSURE})
+  math_eval_natural.py            # Natural grading evaluator (heuristic extraction for non-boxed responses)
+  math_eval_sequential.py         # Sequential evaluator (oracle/naive scores, skip-rate trajectory, per-difficulty)
+  math_eval_l3.py                 # L3/Qwen model evaluator variant
+  swe_eval_cautious.py            # SWE-bench 3-way evaluator: applied / skipped / mixed
   evaluate.py                     # Unified evaluation function
-  grader.py                       # Math equality checker (symbolic, numeric, LaTeX)
-  parser.py                       # Answer extraction from \boxed{}
+  grader.py                       # Math equality checker (symbolic SymPy, numeric, LaTeX)
+  parser.py                       # Answer extraction from \boxed{} via stack-based brace matching
   python_executor.py              # Safe Python code execution with timeout
-  trajectory.py                   # Reasoning trajectory parsing
+  trajectory.py                   # Reasoning trajectory / step parsing
+  data_loader.py                  # Dataset loader (GSM8K, MATH, Omni-MATH, SVAMP via JSONL or HF hub)
   latex2sympy/                    # Embedded LaTeX-to-SymPy converter
-  data/                           # Test data for other benchmarks (GSM8K, MATH, etc.)
-  output/                         # Evaluation results (metrics JSON + detailed JSONL)
+  data/                           # Reference test datasets (GSM8K, MATH, etc.)
+  output/                         # Evaluation results (metrics JSON + detailed JSONL per experiment)
   requirements.txt                # Python dependencies
-  sh/                             # Shell script templates
+  sh/                             # Shell script wrappers
+    eval.sh                       #   Standard math evaluation (calls math_eval.py)
+    eval_l3.sh                    #   L3 model evaluation (vLLM inference + grading)
+    run_eval_qwen2_math.sh        #   Qwen2-Math evaluation
+scripts/                          # Fine-tuning and data pipeline scripts
+  abstention_ft_make_splits.py    # Splits omni_math_rule.jsonl into train_candidates / eval500
+  abstention_ft_label_standard.py # Grades train_candidates responses; adds is_correct + extracted_answer
+  abstention_ft_build_train_data.py # Builds SFT/DPO training files for each rubric × prefix_k × size combo
+  abstention_ft_train_sft.py      # LoRA SFT (4-bit NF4 quant, r=16, loss on assistant tokens only)
+  abstention_ft_train_dpo.py      # LoRA DPO via TRL (β=0.1, implicit reference from LoRA init)
+  abstention_ft_aggregate.py      # Aggregates cautious_metrics.json files into summary CSV + Markdown table
+  abstention_ft_run_commands.sh   # Orchestration script for the full fine-tuning pipeline (stages 1–7)
+data/
+  abstention_ft/                  # Generated SFT/DPO training files (per model, rubric, size, method)
+    eval500.jsonl                 # 500 held-out eval problems (from omni_math_rule.jsonl idx split)
+    train_candidates.jsonl        # 2,321 remaining problems for training
+checkpoints/
+  abstention_ft/                  # LoRA adapter checkpoints saved during SFT/DPO training
+run_swe_experiments.sh            # SWE-bench Pro experiments (inference_api_swe → swe_eval_cautious)
 ```
 
 ## Dataset Format
@@ -129,7 +156,7 @@ Inference is **resume-safe** — rerun the same command to skip already-complete
 
 ### 2. Prompt Presets
 
-Available presets: `standard`, `cautious`, `ultra_cautious`, `reward_lives_1_10`, `reward_lives_1_humanity`, `natural_grading`, `natural_grading_2`.
+Available presets: `standard`, `cautious`, `ultra_cautious`, `reward_lives_1_10`, `reward_lives_1_humanity`, `natural_grading`, `natural_grading_2`, `quant_m25`, `quant_m100`.
 
 See `inference/prompts.py` for the full text of each prompt. New presets can be added directly to the `PROMPTS` dict in that file. Alternatively, pass arbitrary prompt text at runtime via `--system-prompt`.
 
@@ -295,6 +322,46 @@ Omit `--action` to run an interactive stdin/stdout JSON-lines loop instead. See 
 ### 9. Adding New Providers
 
 Create a file in `inference/providers/` implementing the `Provider` base class, then register it in `inference/providers/__init__.py`. See `openai_provider.py` for reference.
+
+### 10. SWE-bench Pro Experiments
+
+```bash
+bash run_swe_experiments.sh
+# or directly:
+python inference/inference_api_swe.py ...   # generates code patches
+python evaluation/swe_eval_cautious.py ...  # 3-way: applied / skipped / mixed
+```
+
+### 11. Abstention Fine-Tuning Pipeline
+
+Teaches models to output `\boxed{UNSURE}` on problems they would get wrong. The pipeline is orchestrated by `scripts/abstention_ft_run_commands.sh` but **most stages are commented out** — only evaluation runs actively.
+
+**Full intended pipeline (uncomment to run):**
+
+| Stage | Script | What it does |
+|---|---|---|
+| 1 | `scripts/abstention_ft_make_splits.py` | Splits dataset: 500 → `eval500.jsonl`, 2,321 → `train_candidates.jsonl` |
+| 2 | `inference/inference_vllm.py` (×2) | Labels train candidates with vLLM; outputs to `inference/results/abstention_ft/` |
+| 3 | `scripts/abstention_ft_label_standard.py` | Grades generated responses; adds `is_correct`, `extracted_answer`, `classification` |
+| 4 | `scripts/abstention_ft_build_train_data.py` | Builds SFT/DPO files for each rubric × prefix_k × size combo (see below) |
+| 5a | `scripts/abstention_ft_train_sft.py` | LoRA SFT: 4-bit NF4 quant, r=16/α=32, loss on assistant tokens only, 3 epochs |
+| 5b | `scripts/abstention_ft_train_dpo.py` | LoRA DPO: β=0.1, implicit reference from LoRA init, same quant/schedule as SFT |
+| 6 | `evaluation/math_eval*.py` | Standard + cautious + natural evaluation across all variants |
+| 7 | `scripts/abstention_ft_aggregate.py` | Reads all `cautious_metrics.json` files; outputs summary CSV + Markdown table |
+
+**Training data build (`abstention_ft_build_train_data.py`) dimensions:**
+- **Rubric**: `quant_m25` (+1/0/−25) or `quant_m100` (+1/0/−100)
+- **prefix_k**: 0 or 256 — tokens of the model's own reasoning prefixed before the abstention string
+- **Size**: 20, 100, or 500 examples (n/2 correct + n/2 incorrect)
+- **Method**: `sft` (correct → attempt, incorrect → `\boxed{UNSURE}`) or `dpo` (chosen/rejected pairs)
+- Output: one JSONL per combination under `data/abstention_ft/{model_slug}/`
+
+**Checkpoints** saved to `checkpoints/abstention_ft/` per combination.
+
+**Aggregate success criteria** (from `abstention_ft_aggregate.py`):
+- ≤ 2pp accuracy drop vs. baseline on standard prompt
+- ≤ 1% spurious abstention on standard prompt  
+- Positive utility gain under the target rubric: `(correct − penalty×incorrect) / 500`
 
 
 ## Results Summary
@@ -516,3 +583,35 @@ This is intelligent calibration — the model skips harder problems at higher ra
 ### Evaluation Output (`evaluation/output/`)
 
 Each experiment directory contains `math_eval_cot_metrics.json` (standard eval) or `cautious_metrics.json` + `cautious_eval.jsonl` (cautious eval). Directory names match inference file names, prefixed with model identifier.
+
+## Snapshot Visualization Tools
+
+When working in this repository:
+
+1) Treat `visualization-json-generator/DIAGRAM_DATA_PROMPT.md` as the source of truth for generating Rasoi DiagramData JSON.
+2) After every second coding iteration, generate a new architecture snapshot JSON for the current repo state.
+3) Also generate a new snapshot immediately when the user asks for a new visual/diagram/snapshot.
+4) Always write snapshots to `sessions/<session-id>/vN/diagram.json` (increment `vN`).
+5) Infer the primary user action from the current codebase (routes/controllers/use-cases) and structure the diagram as a narrative around it.
+6) Keep IDs stable across snapshots when entities are unchanged, so Rasoi diffs remain meaningful.
+7) Run:
+   `node packages/visualization-json-generator/validate-diagram-data.mjs <snapshot-path>`
+   and fix validation failures before finishing.
+8) Do not use generic labels like `src`, `lib`, `utils`, or `package` for component names.
+
+### Checklist when creating or updating a snapshot
+
+- [ ] Create or update folder: `sessions/<session-id>/` where `<session-id>` is only `[a-zA-Z0-9_-]+`.
+- [ ] Write **`meta.json`** at `sessions/<session-id>/meta.json`. **`id` must match the folder name.**
+- [ ] Write **`diagram.json`** at `sessions/<session-id>/vN/diagram.json` for each version.
+- [ ] Ensure **`meta.json` → `versions`** lists every `vN` you created.
+- [ ] Run the validator on each new `diagram.json`.
+
+### Quality checklist before writing snapshot
+
+- Exactly one `software-system` in `context.nodes`.
+- Every `components` key maps to a real container node and layout entry.
+- Node titles/subtitles are plain-language and specific (no folder-name placeholders).
+- Edge labels use specific action verbs and show direction of data movement.
+- Layout is readable and grouped (system boundary vs external systems).
+- IDs are stable vs prior snapshot where possible.

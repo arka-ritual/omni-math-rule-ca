@@ -45,3 +45,6 @@ build/
 
 # New experiment results (keep original data, ignore new runs)
 # Add specific files you want to keep to git with: git add -f <file>
+checkpoints*/
+*.json
+*.jsonl

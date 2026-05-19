@@ -1,120 +1,144 @@
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
-from tqdm import tqdm
-from datasets import load_from_disk
+#!/usr/bin/env python3
 import argparse
 import json
-import re
-import jsonlines
-from fraction import Fraction
-from vllm import LLM, SamplingParams
-import transformers
+import os
 import sys
-MAX_INT = sys.maxsize
-import pdb
 
-def generate_dataset(dataset_path, messages_template):
-    query = []
-    with open(dataset_path) as f:
-        for line in f.readlines():
-            query.append(json.loads(line))
-    
-    messages = []
-    for line in query:
-        message_line = messages_template.copy()
-        message_line[1]['content'] = line['problem']
-        messages.append(message_line)
-    
-    return messages
+from transformers import AutoTokenizer
+from vllm import LLM, SamplingParams
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from prompts import PROMPTS
+
+from vllm.lora.request import LoRARequest
 
 
-def batch_data(data_list, batch_size=1):
-    n = len(data_list) // batch_size
-    batch_data = []
-    for i in range(n-1):
-        start = i * batch_size
-        end = (i+1)*batch_size
-        batch_data.append(data_list[start:end])
-
-    last_start = (n-1) * batch_size
-    last_end = MAX_INT
-    batch_data.append(data_list[last_start:last_end])
-    return batch_data
+def read_jsonl(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
 
 
-def vllm_test(args, model, data_path, start=0, end=MAX_INT, batch_size=1, tensor_parallel_size=1):
-    
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        args.model,
+def batches(xs, n):
+    return [xs[i:i + n] for i in range(0, len(xs), n)]
+
+
+def problem(row):
+    return row.get("problem", row.get("question"))
+
+
+def render_prompt(tokenizer, system, user_problem, enable_thinking):
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user_problem},
+    ]
+
+    if tokenizer.chat_template is not None:
+        try:
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=enable_thinking,
+            )
+        except TypeError:
+            return tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+
+    return f"{system}\n\nProblem:\n{user_problem}\n\nAnswer:\n"
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--model", required=True)
+    p.add_argument("--data_file", required=True)
+    p.add_argument("--save_path", required=True)
+    p.add_argument("--prompt", default="standard")
+    p.add_argument("--system-prompt", default=None)
+    p.add_argument("--start", type=int, default=0)
+    p.add_argument("--end", type=int, default=None)
+    p.add_argument("--batch_size", type=int, default=128)
+    p.add_argument("--tensor_parallel_size", type=int, default=1)
+
+    p.add_argument("--temperature", type=float, default=0.7)
+    p.add_argument("--top_p", type=float, default=0.8)
+    p.add_argument("--top_k", type=int, default=20)
+    p.add_argument("--presence_penalty", type=float, default=0.0)
+    p.add_argument("--repetition_penalty", type=float, default=1.0)
+    p.add_argument("--max_tokens", type=int, default=4096)
+    p.add_argument("--max_model_len", type=int, default=32768)
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--enable_thinking", action="store_true")
+    p.add_argument("--gpu_memory_utilization", type=float, default=None)
+    p.add_argument("--max_num_batched_tokens", type=int, default=None)
+    p.add_argument("--enable_prefix_caching", action="store_true")
+
+    p.add_argument("--lora_adapter", default=None)
+    p.add_argument("--max_lora_rank", type=int, default=16)
+    args = p.parse_args()
+
+    system = args.system_prompt if args.system_prompt is not None else PROMPTS[args.prompt]
+    rows = read_jsonl(args.data_file)[args.start:args.end]
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+    prompts = [
+        render_prompt(tokenizer, system, problem(row), args.enable_thinking)
+        for row in rows
+    ]
+
+    llm_kwargs = dict(
+        model=args.model,
+        tensor_parallel_size=args.tensor_parallel_size,
+        max_model_len=args.max_model_len,
+        trust_remote_code=True,
     )
-    
-    INVALID_ANS = "[invalid]"
-    gsm8k_ins = []
-    gsm8k_answers = []
-    gsm8k_ques_items = []
+    if args.lora_adapter is not None:
+        llm_kwargs["enable_lora"] = True
+        llm_kwargs["max_lora_rank"] = args.max_lora_rank
+    if args.gpu_memory_utilization is not None:
+        llm_kwargs["gpu_memory_utilization"] = args.gpu_memory_utilization
+    if args.max_num_batched_tokens is not None:
+        llm_kwargs["max_num_batched_tokens"] = args.max_num_batched_tokens
+    if args.enable_prefix_caching:
+        llm_kwargs["enable_prefix_caching"] = True
 
-    with open(data_path,"r+", encoding="utf8") as f:
-        for idx, item in enumerate(jsonlines.Reader(f)):
-            try:
-                messages_template = [
-                    {"role": "system", "content": "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step and put your final answer within \\boxed{}."},
-                    {"role": "user", "content": item['question']}
-                ]
-            except:
-                messages_template = [
-                    {"role": "system", "content": "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step and put your final answer within \\boxed{}."},
-                    {"role": "user", "content": item['problem']}
-                ]
-            temp_instr = tokenizer.apply_chat_template(messages_template, tokenize=False, add_generation_prompt=True)
-            gsm8k_ins.append(temp_instr)
-            gsm8k_ques_items.append(item)
-            try:
-                temp_ans = item['solution']
-            except:
-                temp_ans = item['answer']
-            gsm8k_answers.append(temp_ans)
+    llm = LLM(**llm_kwargs)
+    sampling = SamplingParams(
+        temperature=args.temperature,
+        top_p=args.top_p,
+        top_k=args.top_k,
+        max_tokens=args.max_tokens,
+        seed=args.seed,
+        presence_penalty=args.presence_penalty,
+        repetition_penalty=args.repetition_penalty,
+    )
 
-    gsm8k_ins = gsm8k_ins[start:end]
-    gsm8k_ques_items = gsm8k_ques_items[start:end]
-    gsm8k_answers = gsm8k_answers[start:end]
-    print('lenght ====', len(gsm8k_ins))
-    batch_gsm8k_ins = batch_data(gsm8k_ins, batch_size=batch_size)
+    lora_request = None
+    if args.lora_adapter is not None:
+        lora_request = LoRARequest("adapter", 1, args.lora_adapter)
 
-    stop_tokens = ["Question:", "Question", "USER:", "USER", "ASSISTANT:", "ASSISTANT", "Instruction:", "Instruction", "Response:", "Response"]
-    sampling_params = SamplingParams(temperature=0, top_p=1, max_tokens=32768, stop=stop_tokens)
+    generated = []
+    for batch in batches(prompts, args.batch_size):
+        for out in llm.generate(batch, sampling, lora_request=lora_request):
+            o = out.outputs[0]
+            generated.append({
+                "text": o.text,
+                "finish_reason": getattr(o, "finish_reason", None),
+                "stop_reason": getattr(o, "stop_reason", None),
+            })
 
-    print('sampleing =====', sampling_params)
-    llm = LLM(model=model,tensor_parallel_size=tensor_parallel_size, max_model_len=32768)
-    result = []
-    res_completions = []
-    for idx, (prompt, prompt_answer) in enumerate(zip(batch_gsm8k_ins, gsm8k_answers)):
-        if isinstance(prompt, list):
-            pass
-        else:
-            prompt = [prompt]
-
-        completions = llm.generate(prompt, sampling_params)
-        for output in completions:
-            prompt = output.prompt
-            generated_text = output.outputs[0].text
-            res_completions.append(generated_text)
-
-    with open(args.save_path, 'w') as f:
-        for idx, (source_js, completion, prompt_answer) in enumerate(zip(gsm8k_ques_items, res_completions, gsm8k_answers)):
-            source_js['model_generation'] = completion
-            f.write(json.dumps(source_js) + '\n')
+    os.makedirs(os.path.dirname(args.save_path), exist_ok=True)
+    with open(args.save_path, "w", encoding="utf-8") as f:
+        for row, gen in zip(rows, generated):
+            out = dict(row)
+            out["model_generation"] = gen["text"]
+            out["generation_finish_reason"] = gen["finish_reason"]
+            out["generation_stop_reason"] = gen["stop_reason"]
+            out["prompt_mode"] = args.prompt if args.system_prompt is None else "system_prompt_override"
+            f.write(json.dumps(out, ensure_ascii=False) + "\n")
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str)  # model path
-    parser.add_argument("--data_file", type=str, default='')  # data path
-    parser.add_argument("--start", type=int, default=0) #start index
-    parser.add_argument("--end", type=int, default=MAX_INT)  # end index
-    parser.add_argument("--batch_size", type=int, default=5000)  # batch_size
-    parser.add_argument("--tensor_parallel_size", type=int, default=8)  # tensor_parallel_size
-    parser.add_argument("--save_path",type=str, default='')  # saving path
-    return parser.parse_args()
 if __name__ == "__main__":
-    args = parse_args()
-    vllm_test(args=args, model=args.model, data_path=args.data_file, start=args.start, end=args.end, batch_size=args.batch_size, tensor_parallel_size=args.tensor_parallel_size)
+    main()

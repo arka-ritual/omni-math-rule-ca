@@ -63,8 +63,15 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
 
     Returns a dict with keys: score, category, all_boxed, pred, gt.
     """
-    generation = item.get("model_generation", "")
-    all_boxed = extract_all_boxed(generation)
+    generation = item.get("model_generation", "") or ""
+    # Strip thinking block — Qwen uses </think>, Gemma uses <channel|>
+    think_end = -1
+    for tok in ["</think>", "<channel|>"]:
+        pos = generation.find(tok)
+        if pos != -1:
+            think_end = max(think_end, pos + len(tok))
+    visible = generation[think_end:] if think_end != -1 else generation
+    all_boxed = extract_all_boxed(visible)
 
     # Ground truth: use 'answer' field directly (Omni-MATH-Rule format)
     gt_raw = item.get("answer", "")
@@ -81,7 +88,15 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
     has_non_unsure = any(not f for f in unsure_flags)
 
     if not all_boxed:
-        # No boxed output at all — treat as abstained
+        # Cut off at max tokens with no answer — penalise, don't reward as abstention
+        if item.get("generation_finish_reason") == "length":
+            return {
+                "score": False,
+                "category": "incorrect_length_cut",
+                "all_boxed": all_boxed,
+                "pred": "",
+                "gt": gt,
+            }
         return {
             "score": False,
             "category": "abstained",
@@ -111,7 +126,7 @@ def classify_problem(item: dict, data_name: str = "omni-math") -> dict:
         }
 
     # No UNSURE — standard grading using last boxed value
-    pred = extract_answer(generation, data_name)
+    pred = extract_answer(visible, data_name)
     correct = math_equal(pred, gt)
     return {
         "score": bool(correct),
@@ -146,6 +161,7 @@ def evaluate_cautious(data_file: str, output_dir: str):
     num_correct = sum(1 for r in results if r["category"] == "correct")
     num_incorrect_standard = sum(1 for r in results if r["category"] == "incorrect_standard")
     num_incorrect_mixed = sum(1 for r in results if r["category"] == "incorrect_mixed")
+    num_incorrect_length_cut = sum(1 for r in results if r["category"] == "incorrect_length_cut")
     num_attempted = num_total - num_abstained
 
     metrics = {
@@ -155,6 +171,7 @@ def evaluate_cautious(data_file: str, output_dir: str):
         "num_correct": num_correct,
         "num_incorrect_standard": num_incorrect_standard,
         "num_incorrect_mixed": num_incorrect_mixed,
+        "num_incorrect_length_cut": num_incorrect_length_cut,
         "accuracy_of_attempted": round(100 * num_correct / num_attempted, 1) if num_attempted > 0 else 0.0,
     }
 
