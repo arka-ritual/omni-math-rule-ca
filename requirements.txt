@@ -1,0 +1,74 @@
+# Runtime dependencies for the intervention sweep
+# (`inference/run_interventions.sh` + `evaluation/math_eval_cautious.py`).
+#
+# Setup on a fresh machine:
+#   pip install -r requirements.txt
+#   pip install -e evaluation/latex2sympy   # bundled, NOT pip install latex2sympy2
+#                                           # — the PyPI package ships an ATN
+#                                           # serialized for an older antlr4
+#                                           # runtime and crashes at import.
+#
+# Then create a `.env` at the repo root with whichever of these keys you
+# need (depending on which providers you target):
+#   ANTHROPIC_API_KEY=...
+#   OPENAI_API_KEY=...
+#   GEMINI_API_KEY=...        # or GOOGLE_API_KEY
+#   OPENROUTER_API_KEY=...
+#
+# Versions below match what was used to develop and smoke-test the
+# scripts. They are pinned with `>=` only — newer minors should be safe,
+# but if something breaks at import time, downgrade to the exact pinned
+# version listed in the trailing comment.
+
+# --- LLM provider SDKs (used by inference/providers/*.py) --------------
+openai>=1.55              # tested with 2.32.0; AsyncOpenAI + Responses API
+anthropic>=0.40           # tested with 0.97.0; messages.stream + get_final_message
+google-genai>=1.0         # tested with 1.73.1; aio.models.generate_content
+
+# --- runner / evaluator infra ------------------------------------------
+python-dotenv>=1.0        # tested with 1.1.0; loads .env in run_interventions.py
+tqdm>=4.66                # tested with 4.67.1; tqdm.asyncio.tqdm_asyncio
+
+# --- evaluator (evaluation/grader.py + parser.py) ----------------------
+# The local `evaluation/latex2sympy/` package needs antlr4-python3-runtime
+# pinned to 4.11.1 (matches the .jar shipped under that directory). Newer
+# 4.12+ runtimes deserialize the ATN with the wrong version and fail.
+sympy>=1.12               # tested with 1.14.0
+antlr4-python3-runtime==4.11.1
+regex>=2023.0
+word2number>=1.1
+numpy>=1.24               # via evaluation/utils.py
+
+# --- optional: only needed if you also use the older non-cautious
+# evaluator paths in evaluation/ (eval.sh, math_eval.py, etc.). Safe to
+# install regardless. ---------------------------------------------------
+timeout-decorator>=0.5
+Pebble>=5.0
+
+# --- SWE-Bench Pro driver (`swebench_pro/run_mini_on_pro.py`) ----------
+# `mini-swe-agent` provides the agent loop, the docker environment
+# wrapper, and the trajectory format. It pulls litellm + openai + the
+# rest of the chat SDKs as transitive deps, so installing it can pin
+# `openai` to a slightly older version than what `inference/` uses; if
+# something in inference/providers/openai_provider.py breaks, that's the
+# usual culprit. Tested with mini-swe-agent 2.2.8.
+#
+# REQUIRES Docker on the host (https://docs.docker.com/engine/install/).
+# Pro instances are pulled from `docker.io/jefzda/sweap-images:*`; the
+# first run on a fresh machine will pull GBs of images per instance —
+# allow time and disk space.
+mini-swe-agent>=2.2
+
+# Already pulled in by mini-swe-agent, but listed explicitly because
+# evaluation/ also uses datasets and we want the floor pinned.
+datasets>=4.5
+pyyaml>=6.0
+
+# --- SWE-Bench Pro official evaluation harness ------------------------
+# `swebench_pro/scripts/run_eval.sh` clones the upstream
+# `scaleapi/SWE-bench_Pro-os` repo into `swebench_pro/external/` and
+# invokes its `swe_bench_pro_eval.py` with `--use_local_docker`. That
+# script needs `docker` (Python SDK) and `pandas`. `modal` is NOT needed
+# because we only use the local-docker path.
+docker>=6.0               # tested with 7.x; Python Docker SDK
+pandas>=2.0

@@ -1,0 +1,6 @@
+2026-05-06 11:13:48,867 - minisweagent - INFO - [reasoning] openai: reasoning_effort='medium'
+2026-05-06 11:13:48,869 - minisweagent - INFO - Final model_kwargs (reasoning_effort=medium): {'drop_params': True, 'temperature': 0.0, 'parallel_tool_calls': True, 'timeout': 600.0, 'reasoning_effort': 'medium'}
+2026-05-06 11:13:48,870 - minisweagent - INFO - Intervention: id=1 prompt_config=qp7 rubric=(None,None,None)
+2026-05-06 11:13:48,872 - minisweagent - INFO - Loaded 100 instances from swebench_pro/data/swebench_pro_full.jsonl; sampled 2 (seed=100, limit=2)
+2026-05-06 11:13:51,337 - minisweagent.environment - INFO - Started container minisweagent-2a695197 with ID 722d22c46bffa1239ccb267ebe202329a2a76b2bf53c6a6daa68615f4eab6fae
+2026-05-06 11:13:51,343 - minisweagent.environment - INFO - Started container minisweagent-a3f476e2 with ID df6301447c44c02cab72807b235de5e8d7140aefdf13866104f0aee0756768eb

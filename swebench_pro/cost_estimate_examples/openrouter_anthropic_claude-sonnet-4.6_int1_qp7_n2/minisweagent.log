@@ -1,0 +1,6 @@
+2026-05-06 11:13:47,861 - minisweagent - INFO - [reasoning] Anthropic: thinking.budget_tokens=8000, temperature=1.0
+2026-05-06 11:13:47,862 - minisweagent - INFO - Final model_kwargs (reasoning_effort=medium): {'drop_params': True, 'temperature': 1.0, 'parallel_tool_calls': True, 'timeout': 600.0, 'thinking': {'type': 'enabled', 'budget_tokens': 8000}, 'max_tokens': 16000}
+2026-05-06 11:13:47,864 - minisweagent - INFO - Intervention: id=1 prompt_config=qp7 rubric=(None,None,None)
+2026-05-06 11:13:47,867 - minisweagent - INFO - Loaded 100 instances from swebench_pro/data/swebench_pro_full.jsonl; sampled 2 (seed=100, limit=2)
+2026-05-06 11:13:50,249 - minisweagent.environment - INFO - Started container minisweagent-ed6ec2d2 with ID bce5084e397d3c3ed29472dd40571f8367769fdcfcac73c6213a2be2f5e2323a
+2026-05-06 11:13:50,277 - minisweagent.environment - INFO - Started container minisweagent-55663efc with ID c02a5d96de733994b318cffa0e521837e742296948aca6c800d4d76fe0ea0c97

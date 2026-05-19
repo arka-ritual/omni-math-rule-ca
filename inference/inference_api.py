@@ -20,8 +20,17 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from tqdm.asyncio import tqdm_asyncio
 
-from inference.prompts import PROMPTS
+# Best-effort .env loading so the providers pick up API keys without
+# requiring the user to source a script. Mirrors run_interventions.py.
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:
+    pass
+
+from inference.prompts import PROMPTS, build_quantitative_grading
 from inference.providers import get_provider
+from inference import fewshot
 
 
 def load_dataset(path: str) -> list[dict]:
@@ -60,14 +69,20 @@ async def run_inference(args):
             item["idx"] = i
 
     # --- Select subset ---
+    # Use shuffle-and-slice (NOT rng.sample) so that for a fixed seed, a
+    # smaller --num_samples is ALWAYS a strict prefix of a larger one. This
+    # makes resume work correctly when re-running with a smaller num_samples
+    # than the original run. `random.sample(seq, k)` does not have this
+    # property — its output for k=N₁ and k=N₂ can have non-trivial differences.
     if args.num_samples > 0:
         rng = random.Random(args.seed)
         indices = list(range(len(dataset)))
         if args.start > 0:
             indices = indices[args.start:]
+        rng.shuffle(indices)
         if args.num_samples < len(indices):
-            indices = rng.sample(indices, args.num_samples)
-            indices.sort()
+            indices = indices[: args.num_samples]
+        indices.sort()
         dataset = [dataset[i] for i in indices]
     elif args.start > 0:
         dataset = dataset[args.start:]
@@ -85,6 +100,13 @@ async def run_inference(args):
     # --- Resolve prompt ---
     if args.system_prompt:
         prompt_text = args.system_prompt
+    elif args.prompt == "quantitative_grading":
+        # Render with the requested rubric (defaults to 1 / -10 / 0).
+        prompt_text = build_quantitative_grading(
+            args.rubric_correct, args.rubric_incorrect, args.rubric_abstain,
+        )
+        print(f"Using quantitative_grading rubric: correct={args.rubric_correct}, "
+              f"incorrect={args.rubric_incorrect}, abstain={args.rubric_abstain}")
     else:
         if args.prompt not in PROMPTS:
             raise ValueError(f"Unknown prompt preset '{args.prompt}'. Available: {list(PROMPTS.keys())}")
@@ -97,33 +119,74 @@ async def run_inference(args):
         system_prompt = prompt_text
         user_prefix = None
 
+    # --- Few-shot preamble (base models) ---
+    fewshot_preamble: str | None = None
+    stop_sequences: list[str] | None = None
+    if args.fewshot_variant:
+        if args.fewshot_variant not in fewshot.VARIANTS:
+            raise ValueError(
+                f"Unknown fewshot variant '{args.fewshot_variant}'. Available: {fewshot.VARIANTS}"
+            )
+        fewshot_preamble = fewshot.build_preamble(args.fewshot_variant, prompt_text)
+        stop_sequences = fewshot.STOP_SEQUENCES
+        # In few-shot mode the consequence framing is already embedded inline
+        # before each Q (when applicable); the system prompt becomes empty so
+        # the autocomplete starts cleanly with the preamble.
+        system_prompt = ""
+        user_prefix = None
+
     # --- Provider ---
     provider_kwargs = {}
     if args.api_key:
         provider_kwargs["api_key"] = args.api_key
+    if args.base_model:
+        provider_kwargs["base_model"] = True
+    if args.provider == "vllm" and args.base_model_timeout is not None:
+        provider_kwargs["base_model_timeout"] = args.base_model_timeout
+    if args.openrouter_provider:
+        provider_kwargs["openrouter_provider"] = args.openrouter_provider
     provider = get_provider(args.provider, **provider_kwargs)
 
     # --- Async inference with immediate writes ---
     sem = asyncio.Semaphore(args.concurrency)
     write_lock = asyncio.Lock()
     completed = 0
+    failed = 0
 
     async def process(item: dict):
-        nonlocal completed
+        nonlocal completed, failed
         problem = item.get("problem") or item.get("question", "")
-        user_msg = f"{user_prefix}\n\nProblem:\n{problem}" if user_prefix else problem
-        async with sem:
-            response = await provider.generate(
-                system_prompt=system_prompt,
-                user_prompt=user_msg,
-                model=args.model,
-                temperature=args.temperature,
-                max_completion_tokens=args.max_tokens,
+        if fewshot_preamble is not None:
+            user_msg = (
+                fewshot_preamble
+                + "\n\n"
+                + fewshot.format_query(problem, args.fewshot_variant, prompt_text)
             )
+        elif user_prefix:
+            user_msg = f"{user_prefix}\n\nProblem:\n{problem}"
+        else:
+            user_msg = problem
+        try:
+            async with sem:
+                response = await provider.generate(
+                    system_prompt=system_prompt,
+                    user_prompt=user_msg,
+                    model=args.model,
+                    temperature=args.temperature,
+                    max_completion_tokens=args.max_tokens,
+                    stop=stop_sequences,
+                )
+        except Exception as e:
+            # Per-item failure isolation: log and skip so one bad request
+            # (timeout, connection drop, etc.) doesn't crash the whole run.
+            # The item is left out of the save file, so a subsequent rerun
+            # with --resume picks it up automatically.
+            failed += 1
+            print(f"[FAIL idx={item.get('idx')}] {type(e).__name__}: {e}")
+            return None
         result = dict(item)
         result["model_generation"] = response or ""
         result["prompt_mode"] = args.prompt
-        # Write immediately so progress is never lost
         async with write_lock:
             with open(args.save_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(result, ensure_ascii=False) + "\n")
@@ -133,7 +196,7 @@ async def run_inference(args):
     tasks = [process(item) for item in remaining]
     await tqdm_asyncio.gather(*tasks, desc="Inference")
 
-    print(f"Wrote {completed} results to {args.save_path}")
+    print(f"Wrote {completed} results to {args.save_path}" + (f"  ({failed} failed — rerun to retry)" if failed else ""))
 
 
 def parse_args():
@@ -151,7 +214,22 @@ def parse_args():
     parser.add_argument("--start", type=int, default=0, help="Start index in dataset (default: 0)")
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling (default: 0)")
     parser.add_argument("--api_key", type=str, default=None, help="API key (overrides env variable)")
+    parser.add_argument("--openrouter-provider", "--openrouter_provider",
+                        dest="openrouter_provider", default=None,
+                        help="OpenRouter sub-provider to pin via provider routing "
+                             "(e.g. 'DeepSeek'). Sets allow_fallbacks=false, so the "
+                             "request fails loudly if that upstream isn't available "
+                             "instead of silently being routed elsewhere.")
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
+    parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
+    parser.add_argument("--base_model_timeout", type=float, default=60.0,
+                        help="Per-request timeout (seconds) for base-model autocomplete calls (default: 60). Has no effect on chat-completions calls.")
+    parser.add_argument("--fewshot_variant", type=str, default=None, choices=fewshot.VARIANTS,
+                        help=f"Enable few-shot scaffolding for base models. One of: {', '.join(fewshot.VARIANTS)}")
+    # Rubric values for --prompt quantitative_grading (ignored otherwise).
+    parser.add_argument("--rubric_correct", type=float, default=1, help="Score for a correct answer (quantitative_grading only, default: 1)")
+    parser.add_argument("--rubric_incorrect", type=float, default=-10, help="Score for an incorrect answer (quantitative_grading only, default: -10)")
+    parser.add_argument("--rubric_abstain", type=float, default=0, help="Score for abstaining (quantitative_grading only, default: 0)")
     return parser.parse_args()
 
 

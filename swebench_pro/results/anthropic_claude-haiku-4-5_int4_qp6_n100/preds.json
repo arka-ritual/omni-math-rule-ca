@@ -1,0 +1,502 @@
+{
+  "instance_ansible__ansible-0ea40e09d1b35bcb69ff4d9cecf3d0defa4b36e8-v30a923fb5c164d6cd18280c02422f75e611e8fb2": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-0ea40e09d1b35bcb69ff4d9cecf3d0defa4b36e8-v30a923fb5c164d6cd18280c02422f75e611e8fb2",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-a6e671db25381ed111bbad0ab3e7d97366395d05-v0f01c69f1e2528b935359cfe578530722bca2c59": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-a6e671db25381ed111bbad0ab3e7d97366395d05-v0f01c69f1e2528b935359cfe578530722bca2c59",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-cd9c4eb5a6b2bfaf4a6709f001ce3d0c92c1eed2-v0f01c69f1e2528b935359cfe578530722bca2c59": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-cd9c4eb5a6b2bfaf4a6709f001ce3d0c92c1eed2-v0f01c69f1e2528b935359cfe578530722bca2c59",
+    "model_patch": ""
+  },
+  "instance_NodeBB__NodeBB-97c8569a798075c50e93e585ac741ab55cb7c28b-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_NodeBB__NodeBB-97c8569a798075c50e93e585ac741ab55cb7c28b-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-66cfa15c372fa9e613ea5a82d3b03e4609399fb6-v363c8a7e5ccdf6968fc7ab84a2053ac78036691d": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-66cfa15c372fa9e613ea5a82d3b03e4609399fb6-v363c8a7e5ccdf6968fc7ab84a2053ac78036691d",
+    "model_patch": ""
+  },
+  "instance_internetarchive__openlibrary-6e889f4a733c9f8ce9a9bd2ec6a934413adcedb9-ve8c8d62a2b60610a3c4631f5f23ed866bada9818": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_internetarchive__openlibrary-6e889f4a733c9f8ce9a9bd2ec6a934413adcedb9-ve8c8d62a2b60610a3c4631f5f23ed866bada9818",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-29aea9ff3466e4cd2ed00524b9e56738d568ce8b-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-29aea9ff3466e4cd2ed00524b9e56738d568ce8b-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-935528e22e5283ee3f63a8772830d3d01f55ed8c-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-935528e22e5283ee3f63a8772830d3d01f55ed8c-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "model_patch": "diff --git a/lib/ansible/plugins/connection/ssh.py b/lib/ansible/plugins/connection/ssh.py\nindex 29a218c090..b87457b55b 100644\n--- a/lib/ansible/plugins/connection/ssh.py\n+++ b/lib/ansible/plugins/connection/ssh.py\n@@ -262,6 +262,34 @@ DOCUMENTATION = '''\n         vars:\n           - name: ansible_scp_if_ssh\n             version_added: '2.7'\n+      transfer_method:\n+        default: smart\n+        description:\n+          - \"Preferred method to use when transferring files over ssh\"\n+          - When set to smart, Ansible will try them until one succeeds or they all fail\n+          - If set to sftp, scp or piped, it will force that method\n+        env: [{name: ANSIBLE_SSH_TRANSFER_METHOD}]\n+        ini:\n+        - {key: transfer_method, section: ssh_connection}\n+        vars:\n+          - name: ansible_transfer_method\n+            version_added: '2.7'\n+      timeout:\n+        default: 10\n+        description:\n+          - Timeout in seconds for SSH operations\n+        type: integer\n+        env:\n+          - name: ANSIBLE_TIMEOUT\n+          - name: ANSIBLE_SSH_TIMEOUT\n+        ini:\n+          - section: defaults\n+            key: timeout\n+          - section: ssh_connection\n+            key: timeout\n+        vars:\n+          - name: ansible_timeout\n+          - name: ansible_ssh_timeout\n       use_tty:\n         version_added: '2.5'\n         default: 'yes'\n@@ -388,7 +416,7 @@ def _ssh_retry(func):\n     \"\"\"\n     @wraps(func)\n     def wrapped(self, *args, **kwargs):\n-        remaining_tries = int(C.ANSIBLE_SSH_RETRIES) + 1\n+        remaining_tries = int(self.get_option('retries')) + 1\n         cmd_summary = u\"%s...\" % to_text(args[0])\n         conn_password = self.get_option('password') or self._play_context.password\n         for attempt in range(remaining_tries):\n@@ -464,8 +492,8 @@ class Connection(ConnectionBase):\n         self.host = self._play_context.remote_addr\n         self.port = self._play_context.port\n         self.user = self._play_context.remote_user\n-        self.control_path = C.ANSIBLE_SSH_CONTROL_PATH\n-        self.control_path_dir = C.ANSIBLE_SSH_CONTROL_PATH_DIR\n+        self.control_path = self.get_option('control_path')\n+        self.control_path_dir = self.get_option('control_path_dir')\n \n         # Windows operates differently from a POSIX connection/shell plugin,\n         # we need to set various properties to ensure SSH on Windows continues\n@@ -593,7 +621,7 @@ class Connection(ConnectionBase):\n         # be disabled if the client side doesn't support the option. However,\n         # sftp batch mode does not prompt for passwords so it must be disabled\n         # if not using controlpersist and using sshpass\n-        if subsystem == 'sftp' and C.DEFAULT_SFTP_BATCH_MODE:\n+        if subsystem == 'sftp' and self.get_option('sftp_batch_mode'):\n             if conn_password:\n                 b_args = [b'-o', b'BatchMode=no']\n                 self._add_args(b_command, b_args, u'disable batch mode for sshpass')\n@@ -624,7 +652,7 @@ class Connection(ConnectionBase):\n             b_args = (b\"-o\", b\"Port=\" + to_bytes(self._play_context.port, nonstring='simplerepr', errors='surrogate_or_strict'))\n             self._add_args(b_command, b_args, u\"ANSIBLE_REMOTE_PORT/remote_port/ansible_port set\")\n \n-        key = self._play_context.private_key_file\n+        key = self.get_option('private_key_file') or self._play_context.private_key_file\n         if key:\n             b_args = (b\"-o\", b'IdentityFile=\"' + to_bytes(os.path.expanduser(key), errors='surrogate_or_strict') + b'\"')\n             self._add_args(b_command, b_args, u\"ANSIBLE_PRIVATE_KEY_FILE/private_key_file/ansible_ssh_private_key_file set\")\n@@ -649,18 +677,25 @@ class Connection(ConnectionBase):\n \n         self._add_args(\n             b_command,\n-            (b\"-o\", b\"ConnectTimeout=\" + to_bytes(self._play_context.timeout, errors='surrogate_or_strict', nonstring='simplerepr')),\n+            (b\"-o\", b\"ConnectTimeout=\" + to_bytes(self.get_option('timeout') or self._play_context.timeout, errors='surrogate_or_strict', nonstring='simplerepr')),\n             u\"ANSIBLE_TIMEOUT/timeout set\"\n         )\n \n         # Add in any common or binary-specific arguments from the PlayContext\n         # (i.e. inventory or task settings or overrides on the command line).\n \n-        for opt in (u'ssh_common_args', u'{0}_extra_args'.format(subsystem)):\n-            attr = getattr(self._play_context, opt, None)\n-            if attr is not None:\n-                b_args = [to_bytes(a, errors='surrogate_or_strict') for a in self._split_ssh_args(attr)]\n-                self._add_args(b_command, b_args, u\"PlayContext set %s\" % opt)\n+        # Add ssh_common_args\n+        ssh_common_args = self.get_option('ssh_common_args')\n+        if ssh_common_args:\n+            b_args = [to_bytes(a, errors='surrogate_or_strict') for a in self._split_ssh_args(ssh_common_args)]\n+            self._add_args(b_command, b_args, u\"ssh_common_args set\")\n+        \n+        # Add subsystem-specific extra args\n+        extra_args_option = u'{0}_extra_args'.format(subsystem)\n+        extra_args = self.get_option(extra_args_option)\n+        if extra_args:\n+            b_args = [to_bytes(a, errors='surrogate_or_strict') for a in self._split_ssh_args(extra_args)]\n+            self._add_args(b_command, b_args, u\"%s set\" % extra_args_option)\n \n         # Check if ControlPersist is enabled and add a ControlPath if one hasn't\n         # already been set.\n@@ -886,7 +921,7 @@ class Connection(ConnectionBase):\n         # select timeout should be longer than the connect timeout, otherwise\n         # they will race each other when we can't connect, and the connect\n         # timeout usually fails\n-        timeout = 2 + self._play_context.timeout\n+        timeout = 2 + (self.get_option('timeout') or self._play_context.timeout)\n         for fd in (p.stdout, p.stderr):\n             fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)\n \n@@ -1094,7 +1129,7 @@ class Connection(ConnectionBase):\n         methods = []\n \n         # Use the transfer_method option if set, otherwise use scp_if_ssh\n-        ssh_transfer_method = self._play_context.ssh_transfer_method\n+        ssh_transfer_method = self.get_option('transfer_method')\n         if ssh_transfer_method is not None:\n             if not (ssh_transfer_method in ('smart', 'sftp', 'scp', 'piped')):\n                 raise AnsibleOptionsError('transfer_method needs to be one of [smart|sftp|scp|piped]')\n@@ -1104,7 +1139,7 @@ class Connection(ConnectionBase):\n                 methods = [ssh_transfer_method]\n         else:\n             # since this can be a non-bool now, we need to handle it correctly\n-            scp_if_ssh = C.DEFAULT_SCP_IF_SSH\n+            scp_if_ssh = self.get_option('scp_if_ssh')\n             if not isinstance(scp_if_ssh, bool):\n                 scp_if_ssh = scp_if_ssh.lower()\n                 if scp_if_ssh in BOOLEANS:\n@@ -1263,6 +1298,8 @@ class Connection(ConnectionBase):\n             cp_path = cp_arg[0].split(b\"=\", 1)[-1]\n             if os.path.exists(cp_path):\n                 run_reset = True\n+            else:\n+                display.debug(u'No persistent socket found at %s, skipping reset' % to_text(cp_path))\n         elif controlpersist:\n             run_reset = True\n \ndiff --git a/lib/ansible/plugins/connection/ssh.py.bak b/lib/ansible/plugins/connection/ssh.py.bak\nnew file mode 100644\nindex 0000000000..29a218c090\n--- /dev/null\n+++ b/lib/ansible/plugins/connection/ssh.py.bak\n@@ -0,0 +1,1280 @@\n+# Copyright (c) 2012, Michael DeHaan <michael.dehaan@gmail.com>\n+# Copyright 2015 Abhijit Menon-Sen <ams@2ndQuadrant.com>\n+# Copyright 2017 Toshio Kuratomi <tkuratomi@ansible.com>\n+# Copyright (c) 2017 Ansible Project\n+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)\n+\n+from __future__ import (absolute_import, division, print_function)\n+__metaclass__ = type\n+\n+DOCUMENTATION = '''\n+    name: ssh\n+    short_description: connect via ssh client binary\n+    description:\n+        - This connection plugin allows ansible to communicate to the target machines via normal ssh command line.\n+        - Ansible does not expose a channel to allow communication between the user and the ssh process to accept\n+          a password manually to decrypt an ssh key when using this connection plugin (which is the default). The\n+          use of ``ssh-agent`` is highly recommended.\n+    author: ansible (@core)\n+    extends_documentation_fragment:\n+        - connection_pipelining\n+    version_added: historical\n+    options:\n+      host:\n+          description: Hostname/ip to connect to.\n+          default: inventory_hostname\n+          vars:\n+               - name: ansible_host\n+               - name: ansible_ssh_host\n+      host_key_checking:\n+          description: Determines if ssh should check host keys\n+          type: boolean\n+          ini:\n+              - section: defaults\n+                key: 'host_key_checking'\n+              - section: ssh_connection\n+                key: 'host_key_checking'\n+                version_added: '2.5'\n+          env:\n+              - name: ANSIBLE_HOST_KEY_CHECKING\n+              - name: ANSIBLE_SSH_HOST_KEY_CHECKING\n+                version_added: '2.5'\n+          vars:\n+              - name: ansible_host_key_checking\n+                version_added: '2.5'\n+              - name: ansible_ssh_host_key_checking\n+                version_added: '2.5'\n+      password:\n+          description: Authentication password for the C(remote_user). Can be supplied as CLI option.\n+          vars:\n+              - name: ansible_password\n+              - name: ansible_ssh_pass\n+              - name: ansible_ssh_password\n+      sshpass_prompt:\n+          description: Password prompt that sshpass should search for. Supported by sshpass 1.06 and up.\n+          default: ''\n+          ini:\n+              - section: 'ssh_connection'\n+                key: 'sshpass_prompt'\n+          env:\n+              - name: ANSIBLE_SSHPASS_PROMPT\n+          vars:\n+              - name: ansible_sshpass_prompt\n+          version_added: '2.10'\n+      ssh_args:\n+          description: Arguments to pass to all ssh cli tools\n+          default: '-C -o ControlMaster=auto -o ControlPersist=60s'\n+          ini:\n+              - section: 'ssh_connection'\n+                key: 'ssh_args'\n+          env:\n+              - name: ANSIBLE_SSH_ARGS\n+          vars:\n+              - name: ansible_ssh_args\n+                version_added: '2.7'\n+      ssh_common_args:\n+          description: Common extra args for all ssh CLI tools\n+          ini:\n+              - section: 'ssh_connection'\n+                key: 'ssh_common_args'\n+                version_added: '2.7'\n+          env:\n+              - name: ANSIBLE_SSH_COMMON_ARGS\n+                version_added: '2.7'\n+          vars:\n+              - name: ansible_ssh_common_args\n+      ssh_executable:\n+          default: ssh\n+          description:\n+            - This defines the location of the ssh binary. It defaults to ``ssh`` which will use the first ssh binary available in $PATH.\n+            - This option is usually not required, it might be useful when access to system ssh is restricted,\n+              or when using ssh wrappers to connect to remote hosts.\n+          env: [{name: ANSIBLE_SSH_EXECUTABLE}]\n+          ini:\n+          - {key: ssh_executable, section: ssh_connection}\n+          #const: ANSIBLE_SSH_EXECUTABLE\n+          version_added: \"2.2\"\n+          vars:\n+              - name: ansible_ssh_executable\n+                version_added: '2.7'\n+      sftp_executable:\n+          default: sftp\n+          description:\n+            - This defines the location of the sftp binary. It defaults to ``sftp`` which will use the first binary available in $PATH.\n+          env: [{name: ANSIBLE_SFTP_EXECUTABLE}]\n+          ini:\n+          - {key: sftp_executable, section: ssh_connection}\n+          version_added: \"2.6\"\n+          vars:\n+              - name: ansible_sftp_executable\n+                version_added: '2.7'\n+      scp_executable:\n+          default: scp\n+          description:\n+            - This defines the location of the scp binary. It defaults to `scp` which will use the first binary available in $PATH.\n+          env: [{name: ANSIBLE_SCP_EXECUTABLE}]\n+          ini:\n+          - {key: scp_executable, section: ssh_connection}\n+          version_added: \"2.6\"\n+          vars:\n+              - name: ansible_scp_executable\n+                version_added: '2.7'\n+      scp_extra_args:\n+          description: Extra exclusive to the ``scp`` CLI\n+          vars:\n+              - name: ansible_scp_extra_args\n+          env:\n+            - name: ANSIBLE_SCP_EXTRA_ARGS\n+              version_added: '2.7'\n+          ini:\n+            - key: scp_extra_args\n+              section: ssh_connection\n+              version_added: '2.7'\n+      sftp_extra_args:\n+          description: Extra exclusive to the ``sftp`` CLI\n+          vars:\n+              - name: ansible_sftp_extra_args\n+          env:\n+            - name: ANSIBLE_SFTP_EXTRA_ARGS\n+              version_added: '2.7'\n+          ini:\n+            - key: sftp_extra_args\n+              section: ssh_connection\n+              version_added: '2.7'\n+      ssh_extra_args:\n+          description: Extra exclusive to the 'ssh' CLI\n+          vars:\n+              - name: ansible_ssh_extra_args\n+          env:\n+            - name: ANSIBLE_SSH_EXTRA_ARGS\n+              version_added: '2.7'\n+          ini:\n+            - key: ssh_extra_args\n+              section: ssh_connection\n+              version_added: '2.7'\n+      retries:\n+          # constant: ANSIBLE_SSH_RETRIES\n+          description: Number of attempts to connect.\n+          default: 3\n+          type: integer\n+          env:\n+            - name: ANSIBLE_SSH_RETRIES\n+          ini:\n+            - section: connection\n+              key: retries\n+            - section: ssh_connection\n+              key: retries\n+          vars:\n+            - name: ansible_ssh_retries\n+              version_added: '2.7'\n+      port:\n+          description: Remote port to connect to.\n+          type: int\n+          default: 22\n+          ini:\n+            - section: defaults\n+              key: remote_port\n+          env:\n+            - name: ANSIBLE_REMOTE_PORT\n+          vars:\n+            - name: ansible_port\n+            - name: ansible_ssh_port\n+      remote_user:\n+          description:\n+              - User name with which to login to the remote server, normally set by the remote_user keyword.\n+              - If no user is supplied, Ansible will let the ssh client binary choose the user as it normally\n+          ini:\n+            - section: defaults\n+              key: remote_user\n+          env:\n+            - name: ANSIBLE_REMOTE_USER\n+          vars:\n+            - name: ansible_user\n+            - name: ansible_ssh_user\n+      pipelining:\n+          env:\n+            - name: ANSIBLE_PIPELINING\n+            - name: ANSIBLE_SSH_PIPELINING\n+          ini:\n+            - section: connection\n+              key: pipelining\n+            - section: ssh_connection\n+              key: pipelining\n+          vars:\n+            - name: ansible_pipelining\n+            - name: ansible_ssh_pipelining\n+      private_key_file:\n+          description:\n+              - Path to private key file to use for authentication\n+          ini:\n+            - section: defaults\n+              key: private_key_file\n+          env:\n+            - name: ANSIBLE_PRIVATE_KEY_FILE\n+          vars:\n+            - name: ansible_private_key_file\n+            - name: ansible_ssh_private_key_file\n+\n+      control_path:\n+        description:\n+          - This is the location to save ssh's ControlPath sockets, it uses ssh's variable substitution.\n+          - Since 2.3, if null, ansible will generate a unique hash. Use `%(directory)s` to indicate where to use the control dir path setting.\n+        env:\n+          - name: ANSIBLE_SSH_CONTROL_PATH\n+        ini:\n+          - key: control_path\n+            section: ssh_connection\n+        vars:\n+          - name: ansible_control_path\n+            version_added: '2.7'\n+      control_path_dir:\n+        default: ~/.ansible/cp\n+        description:\n+          - This sets the directory to use for ssh control path if the control path setting is null.\n+          - Also, provides the `%(directory)s` variable for the control path setting.\n+        env:\n+          - name: ANSIBLE_SSH_CONTROL_PATH_DIR\n+        ini:\n+          - section: ssh_connection\n+            key: control_path_dir\n+        vars:\n+          - name: ansible_control_path_dir\n+            version_added: '2.7'\n+      sftp_batch_mode:\n+        default: 'yes'\n+        description: 'TODO: write it'\n+        env: [{name: ANSIBLE_SFTP_BATCH_MODE}]\n+        ini:\n+        - {key: sftp_batch_mode, section: ssh_connection}\n+        type: bool\n+        vars:\n+          - name: ansible_sftp_batch_mode\n+            version_added: '2.7'\n+      scp_if_ssh:\n+        default: smart\n+        description:\n+          - \"Preferred method to use when transfering files over ssh\"\n+          - When set to smart, Ansible will try them until one succeeds or they all fail\n+          - If set to True, it will force 'scp', if False it will use 'sftp'\n+        env: [{name: ANSIBLE_SCP_IF_SSH}]\n+        ini:\n+        - {key: scp_if_ssh, section: ssh_connection}\n+        vars:\n+          - name: ansible_scp_if_ssh\n+            version_added: '2.7'\n+      use_tty:\n+        version_added: '2.5'\n+        default: 'yes'\n+        description: add -tt to ssh commands to force tty allocation\n+        env: [{name: ANSIBLE_SSH_USETTY}]\n+        ini:\n+        - {key: usetty, section: ssh_connection}\n+        type: bool\n+        vars:\n+          - name: ansible_ssh_use_tty\n+            version_added: '2.7'\n+'''\n+\n+import errno\n+import fcntl\n+import hashlib\n+import os\n+import pty\n+import re\n+import subprocess\n+import time\n+\n+from functools import wraps\n+from ansible import constants as C\n+from ansible.errors import (\n+    AnsibleAuthenticationFailure,\n+    AnsibleConnectionFailure,\n+    AnsibleError,\n+    AnsibleFileNotFound,\n+)\n+from ansible.errors import AnsibleOptionsError\n+from ansible.module_utils.compat import selectors\n+from ansible.module_utils.six import PY3, text_type, binary_type\n+from ansible.module_utils.six.moves import shlex_quote\n+from ansible.module_utils._text import to_bytes, to_native, to_text\n+from ansible.module_utils.parsing.convert_bool import BOOLEANS, boolean\n+from ansible.plugins.connection import ConnectionBase, BUFSIZE\n+from ansible.plugins.shell.powershell import _parse_clixml\n+from ansible.utils.display import Display\n+from ansible.utils.path import unfrackpath, makedirs_safe\n+\n+display = Display()\n+\n+\n+b_NOT_SSH_ERRORS = (b'Traceback (most recent call last):',  # Python-2.6 when there's an exception\n+                                                            # while invoking a script via -m\n+                    b'PHP Parse error:',  # Php always returns error 255\n+                    )\n+\n+SSHPASS_AVAILABLE = None\n+\n+\n+class AnsibleControlPersistBrokenPipeError(AnsibleError):\n+    ''' ControlPersist broken pipe '''\n+    pass\n+\n+\n+def _handle_error(remaining_retries, command, return_tuple, no_log, host, display=display):\n+\n+    # sshpass errors\n+    if command == b'sshpass':\n+        # Error 5 is invalid/incorrect password. Raise an exception to prevent retries from locking the account.\n+        if return_tuple[0] == 5:\n+            msg = 'Invalid/incorrect username/password. Skipping remaining {0} retries to prevent account lockout:'.format(remaining_retries)\n+            if remaining_retries <= 0:\n+                msg = 'Invalid/incorrect password:'\n+            if no_log:\n+                msg = '{0} <error censored due to no log>'.format(msg)\n+            else:\n+                msg = '{0} {1}'.format(msg, to_native(return_tuple[2]).rstrip())\n+            raise AnsibleAuthenticationFailure(msg)\n+\n+        # sshpass returns codes are 1-6. We handle 5 previously, so this catches other scenarios.\n+        # No exception is raised, so the connection is retried - except when attempting to use\n+        # sshpass_prompt with an sshpass that won't let us pass -P, in which case we fail loudly.\n+        elif return_tuple[0] in [1, 2, 3, 4, 6]:\n+            msg = 'sshpass error:'\n+            if no_log:\n+                msg = '{0} <error censored due to no log>'.format(msg)\n+            else:\n+                details = to_native(return_tuple[2]).rstrip()\n+                if \"sshpass: invalid option -- 'P'\" in details:\n+                    details = 'Installed sshpass version does not support customized password prompts. ' \\\n+                              'Upgrade sshpass to use sshpass_prompt, or otherwise switch to ssh keys.'\n+                    raise AnsibleError('{0} {1}'.format(msg, details))\n+                msg = '{0} {1}'.format(msg, details)\n+\n+    if return_tuple[0] == 255:\n+        SSH_ERROR = True\n+        for signature in b_NOT_SSH_ERRORS:\n+            if signature in return_tuple[1]:\n+                SSH_ERROR = False\n+                break\n+\n+        if SSH_ERROR:\n+            msg = \"Failed to connect to the host via ssh:\"\n+            if no_log:\n+                msg = '{0} <error censored due to no log>'.format(msg)\n+            else:\n+                msg = '{0} {1}'.format(msg, to_native(return_tuple[2]).rstrip())\n+            raise AnsibleConnectionFailure(msg)\n+\n+    # For other errors, no exception is raised so the connection is retried and we only log the messages\n+    if 1 <= return_tuple[0] <= 254:\n+        msg = u\"Failed to connect to the host via ssh:\"\n+        if no_log:\n+            msg = u'{0} <error censored due to no log>'.format(msg)\n+        else:\n+            msg = u'{0} {1}'.format(msg, to_text(return_tuple[2]).rstrip())\n+        display.vvv(msg, host=host)\n+\n+\n+def _ssh_retry(func):\n+    \"\"\"\n+    Decorator to retry ssh/scp/sftp in the case of a connection failure\n+\n+    Will retry if:\n+    * an exception is caught\n+    * ssh returns 255\n+    Will not retry if\n+    * sshpass returns 5 (invalid password, to prevent account lockouts)\n+    * remaining_tries is < 2\n+    * retries limit reached\n+    \"\"\"\n+    @wraps(func)\n+    def wrapped(self, *args, **kwargs):\n+        remaining_tries = int(C.ANSIBLE_SSH_RETRIES) + 1\n+        cmd_summary = u\"%s...\" % to_text(args[0])\n+        conn_password = self.get_option('password') or self._play_context.password\n+        for attempt in range(remaining_tries):\n+            cmd = args[0]\n+            if attempt != 0 and conn_password and isinstance(cmd, list):\n+                # If this is a retry, the fd/pipe for sshpass is closed, and we need a new one\n+                self.sshpass_pipe = os.pipe()\n+                cmd[1] = b'-d' + to_bytes(self.sshpass_pipe[0], nonstring='simplerepr', errors='surrogate_or_strict')\n+\n+            try:\n+                try:\n+                    return_tuple = func(self, *args, **kwargs)\n+                    if self._play_context.no_log:\n+                        display.vvv(u'rc=%s, stdout and stderr censored due to no log' % return_tuple[0], host=self.host)\n+                    else:\n+                        display.vvv(return_tuple, host=self.host)\n+                    # 0 = success\n+                    # 1-254 = remote command return code\n+                    # 255 could be a failure from the ssh command itself\n+                except (AnsibleControlPersistBrokenPipeError):\n+                    # Retry one more time because of the ControlPersist broken pipe (see #16731)\n+                    cmd = args[0]\n+                    if conn_password and isinstance(cmd, list):\n+                        # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one\n+                        self.sshpass_pipe = os.pipe()\n+                        cmd[1] = b'-d' + to_bytes(self.sshpass_pipe[0], nonstring='simplerepr', errors='surrogate_or_strict')\n+                    display.vvv(u\"RETRYING BECAUSE OF CONTROLPERSIST BROKEN PIPE\")\n+                    return_tuple = func(self, *args, **kwargs)\n+\n+                remaining_retries = remaining_tries - attempt - 1\n+                _handle_error(remaining_retries, cmd[0], return_tuple, self._play_context.no_log, self.host)\n+\n+                break\n+\n+            # 5 = Invalid/incorrect password from sshpass\n+            except AnsibleAuthenticationFailure:\n+                # Raising this exception, which is subclassed from AnsibleConnectionFailure, prevents further retries\n+                raise\n+\n+            except (AnsibleConnectionFailure, Exception) as e:\n+\n+                if attempt == remaining_tries - 1:\n+                    raise\n+                else:\n+                    pause = 2 ** attempt - 1\n+                    if pause > 30:\n+                        pause = 30\n+\n+                    if isinstance(e, AnsibleConnectionFailure):\n+                        msg = u\"ssh_retry: attempt: %d, ssh return code is 255. cmd (%s), pausing for %d seconds\" % (attempt + 1, cmd_summary, pause)\n+                    else:\n+                        msg = (u\"ssh_retry: attempt: %d, caught exception(%s) from cmd (%s), \"\n+                               u\"pausing for %d seconds\" % (attempt + 1, to_text(e), cmd_summary, pause))\n+\n+                    display.vv(msg, host=self.host)\n+\n+                    time.sleep(pause)\n+                    continue\n+\n+        return return_tuple\n+    return wrapped\n+\n+\n+class Connection(ConnectionBase):\n+    ''' ssh based connections '''\n+\n+    transport = 'ssh'\n+    has_pipelining = True\n+\n+    def __init__(self, *args, **kwargs):\n+        super(Connection, self).__init__(*args, **kwargs)\n+\n+        self.host = self._play_context.remote_addr\n+        self.port = self._play_context.port\n+        self.user = self._play_context.remote_user\n+        self.control_path = C.ANSIBLE_SSH_CONTROL_PATH\n+        self.control_path_dir = C.ANSIBLE_SSH_CONTROL_PATH_DIR\n+\n+        # Windows operates differently from a POSIX connection/shell plugin,\n+        # we need to set various properties to ensure SSH on Windows continues\n+        # to work\n+        if getattr(self._shell, \"_IS_WINDOWS\", False):\n+            self.has_native_async = True\n+            self.always_pipeline_modules = True\n+            self.module_implementation_preferences = ('.ps1', '.exe', '')\n+            self.allow_executable = False\n+\n+    # The connection is created by running ssh/scp/sftp from the exec_command,\n+    # put_file, and fetch_file methods, so we don't need to do any connection\n+    # management here.\n+\n+    def _connect(self):\n+        return self\n+\n+    @staticmethod\n+    def _create_control_path(host, port, user, connection=None, pid=None):\n+        '''Make a hash for the controlpath based on con attributes'''\n+        pstring = '%s-%s-%s' % (host, port, user)\n+        if connection:\n+            pstring += '-%s' % connection\n+        if pid:\n+            pstring += '-%s' % to_text(pid)\n+        m = hashlib.sha1()\n+        m.update(to_bytes(pstring))\n+        digest = m.hexdigest()\n+        cpath = '%(directory)s/' + digest[:10]\n+        return cpath\n+\n+    @staticmethod\n+    def _sshpass_available():\n+        global SSHPASS_AVAILABLE\n+\n+        # We test once if sshpass is available, and remember the result. It\n+        # would be nice to use distutils.spawn.find_executable for this, but\n+        # distutils isn't always available; shutils.which() is Python3-only.\n+\n+        if SSHPASS_AVAILABLE is None:\n+            try:\n+                p = subprocess.Popen([\"sshpass\"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n+                p.communicate()\n+                SSHPASS_AVAILABLE = True\n+            except OSError:\n+                SSHPASS_AVAILABLE = False\n+\n+        return SSHPASS_AVAILABLE\n+\n+    @staticmethod\n+    def _persistence_controls(b_command):\n+        '''\n+        Takes a command array and scans it for ControlPersist and ControlPath\n+        settings and returns two booleans indicating whether either was found.\n+        This could be smarter, e.g. returning false if ControlPersist is 'no',\n+        but for now we do it simple way.\n+        '''\n+\n+        controlpersist = False\n+        controlpath = False\n+\n+        for b_arg in (a.lower() for a in b_command):\n+            if b'controlpersist' in b_arg:\n+                controlpersist = True\n+            elif b'controlpath' in b_arg:\n+                controlpath = True\n+\n+        return controlpersist, controlpath\n+\n+    def _add_args(self, b_command, b_args, explanation):\n+        \"\"\"\n+        Adds arguments to the ssh command and displays a caller-supplied explanation of why.\n+\n+        :arg b_command: A list containing the command to add the new arguments to.\n+            This list will be modified by this method.\n+        :arg b_args: An iterable of new arguments to add.  This iterable is used\n+            more than once so it must be persistent (ie: a list is okay but a\n+            StringIO would not)\n+        :arg explanation: A text string containing explaining why the arguments\n+            were added.  It will be displayed with a high enough verbosity.\n+        .. note:: This function does its work via side-effect.  The b_command list has the new arguments appended.\n+        \"\"\"\n+        display.vvvvv(u'SSH: %s: (%s)' % (explanation, ')('.join(to_text(a) for a in b_args)), host=self._play_context.remote_addr)\n+        b_command += b_args\n+\n+    def _build_command(self, binary, subsystem, *other_args):\n+        '''\n+        Takes a executable (ssh, scp, sftp or wrapper) and optional extra arguments and returns the remote command\n+        wrapped in local ssh shell commands and ready for execution.\n+\n+        :arg binary: actual executable to use to execute command.\n+        :arg subsystem: type of executable provided, ssh/sftp/scp, needed because wrappers for ssh might have diff names.\n+        :arg other_args: dict of, value pairs passed as arguments to the ssh binary\n+\n+        '''\n+\n+        b_command = []\n+        conn_password = self.get_option('password') or self._play_context.password\n+\n+        #\n+        # First, the command to invoke\n+        #\n+\n+        # If we want to use password authentication, we have to set up a pipe to\n+        # write the password to sshpass.\n+\n+        if conn_password:\n+            if not self._sshpass_available():\n+                raise AnsibleError(\"to use the 'ssh' connection type with passwords, you must install the sshpass program\")\n+\n+            self.sshpass_pipe = os.pipe()\n+            b_command += [b'sshpass', b'-d' + to_bytes(self.sshpass_pipe[0], nonstring='simplerepr', errors='surrogate_or_strict')]\n+\n+            password_prompt = self.get_option('sshpass_prompt')\n+            if password_prompt:\n+                b_command += [b'-P', to_bytes(password_prompt, errors='surrogate_or_strict')]\n+\n+        b_command += [to_bytes(binary, errors='surrogate_or_strict')]\n+\n+        #\n+        # Next, additional arguments based on the configuration.\n+        #\n+\n+        # sftp batch mode allows us to correctly catch failed transfers, but can\n+        # be disabled if the client side doesn't support the option. However,\n+        # sftp batch mode does not prompt for passwords so it must be disabled\n+        # if not using controlpersist and using sshpass\n+        if subsystem == 'sftp' and C.DEFAULT_SFTP_BATCH_MODE:\n+            if conn_password:\n+                b_args = [b'-o', b'BatchMode=no']\n+                self._add_args(b_command, b_args, u'disable batch mode for sshpass')\n+            b_command += [b'-b', b'-']\n+\n+        if self._play_context.verbosity > 3:\n+            b_command.append(b'-vvv')\n+\n+        #\n+        # Next, we add [ssh_connection]ssh_args from ansible.cfg.\n+        #\n+\n+        ssh_args = self.get_option('ssh_args')\n+        if ssh_args:\n+            b_args = [to_bytes(a, errors='surrogate_or_strict') for a in\n+                      self._split_ssh_args(ssh_args)]\n+            self._add_args(b_command, b_args, u\"ansible.cfg set ssh_args\")\n+\n+        # Now we add various arguments controlled by configuration file settings\n+        # (e.g. host_key_checking) or inventory variables (ansible_ssh_port) or\n+        # a combination thereof.\n+\n+        if not C.HOST_KEY_CHECKING:\n+            b_args = (b\"-o\", b\"StrictHostKeyChecking=no\")\n+            self._add_args(b_command, b_args, u\"ANSIBLE_HOST_KEY_CHECKING/host_key_checking disabled\")\n+\n+        if self._play_context.port is not None:\n+            b_args = (b\"-o\", b\"Port=\" + to_bytes(self._play_context.port, nonstring='simplerepr', errors='surrogate_or_strict'))\n+            self._add_args(b_command, b_args, u\"ANSIBLE_REMOTE_PORT/remote_port/ansible_port set\")\n+\n+        key = self._play_context.private_key_file\n+        if key:\n+            b_args = (b\"-o\", b'IdentityFile=\"' + to_bytes(os.path.expanduser(key), errors='surrogate_or_strict') + b'\"')\n+            self._add_args(b_command, b_args, u\"ANSIBLE_PRIVATE_KEY_FILE/private_key_file/ansible_ssh_private_key_file set\")\n+\n+        if not conn_password:\n+            self._add_args(\n+                b_command, (\n+                    b\"-o\", b\"KbdInteractiveAuthentication=no\",\n+                    b\"-o\", b\"PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey\",\n+                    b\"-o\", b\"PasswordAuthentication=no\"\n+                ),\n+                u\"ansible_password/ansible_ssh_password not set\"\n+            )\n+\n+        user = self._play_context.remote_user\n+        if user:\n+            self._add_args(\n+                b_command,\n+                (b\"-o\", b'User=\"%s\"' % to_bytes(self._play_context.remote_user, errors='surrogate_or_strict')),\n+                u\"ANSIBLE_REMOTE_USER/remote_user/ansible_user/user/-u set\"\n+            )\n+\n+        self._add_args(\n+            b_command,\n+            (b\"-o\", b\"ConnectTimeout=\" + to_bytes(self._play_context.timeout, errors='surrogate_or_strict', nonstring='simplerepr')),\n+            u\"ANSIBLE_TIMEOUT/timeout set\"\n+        )\n+\n+        # Add in any common or binary-specific arguments from the PlayContext\n+        # (i.e. inventory or task settings or overrides on the command line).\n+\n+        for opt in (u'ssh_common_args', u'{0}_extra_args'.format(subsystem)):\n+            attr = getattr(self._play_context, opt, None)\n+            if attr is not None:\n+                b_args = [to_bytes(a, errors='surrogate_or_strict') for a in self._split_ssh_args(attr)]\n+                self._add_args(b_command, b_args, u\"PlayContext set %s\" % opt)\n+\n+        # Check if ControlPersist is enabled and add a ControlPath if one hasn't\n+        # already been set.\n+\n+        controlpersist, controlpath = self._persistence_controls(b_command)\n+\n+        if controlpersist:\n+            self._persistent = True\n+\n+            if not controlpath:\n+                cpdir = unfrackpath(self.control_path_dir)\n+                b_cpdir = to_bytes(cpdir, errors='surrogate_or_strict')\n+\n+                # The directory must exist and be writable.\n+                makedirs_safe(b_cpdir, 0o700)\n+                if not os.access(b_cpdir, os.W_OK):\n+                    raise AnsibleError(\"Cannot write to ControlPath %s\" % to_native(cpdir))\n+\n+                if not self.control_path:\n+                    self.control_path = self._create_control_path(\n+                        self.host,\n+                        self.port,\n+                        self.user\n+                    )\n+                b_args = (b\"-o\", b\"ControlPath=\" + to_bytes(self.control_path % dict(directory=cpdir), errors='surrogate_or_strict'))\n+                self._add_args(b_command, b_args, u\"found only ControlPersist; added ControlPath\")\n+\n+        # Finally, we add any caller-supplied extras.\n+        if other_args:\n+            b_command += [to_bytes(a) for a in other_args]\n+\n+        return b_command\n+\n+    def _send_initial_data(self, fh, in_data, ssh_process):\n+        '''\n+        Writes initial data to the stdin filehandle of the subprocess and closes\n+        it. (The handle must be closed; otherwise, for example, \"sftp -b -\" will\n+        just hang forever waiting for more commands.)\n+        '''\n+\n+        display.debug(u'Sending initial data')\n+\n+        try:\n+            fh.write(to_bytes(in_data))\n+            fh.close()\n+        except (OSError, IOError) as e:\n+            # The ssh connection may have already terminated at this point, with a more useful error\n+            # Only raise AnsibleConnectionFailure if the ssh process is still alive\n+            time.sleep(0.001)\n+            ssh_process.poll()\n+            if getattr(ssh_process, 'returncode', None) is None:\n+                raise AnsibleConnectionFailure(\n+                    'Data could not be sent to remote host \"%s\". Make sure this host can be reached '\n+                    'over ssh: %s' % (self.host, to_native(e)), orig_exc=e\n+                )\n+\n+        display.debug(u'Sent initial data (%d bytes)' % len(in_data))\n+\n+    # Used by _run() to kill processes on failures\n+    @staticmethod\n+    def _terminate_process(p):\n+        \"\"\" Terminate a process, ignoring errors \"\"\"\n+        try:\n+            p.terminate()\n+        except (OSError, IOError):\n+            pass\n+\n+    # This is separate from _run() because we need to do the same thing for stdout\n+    # and stderr.\n+    def _examine_output(self, source, state, b_chunk, sudoable):\n+        '''\n+        Takes a string, extracts complete lines from it, tests to see if they\n+        are a prompt, error message, etc., and sets appropriate flags in self.\n+        Prompt and success lines are removed.\n+\n+        Returns the processed (i.e. possibly-edited) output and the unprocessed\n+        remainder (to be processed with the next chunk) as strings.\n+        '''\n+\n+        output = []\n+        for b_line in b_chunk.splitlines(True):\n+            display_line = to_text(b_line).rstrip('\\r\\n')\n+            suppress_output = False\n+\n+            # display.debug(\"Examining line (source=%s, state=%s): '%s'\" % (source, state, display_line))\n+            if self.become.expect_prompt() and self.become.check_password_prompt(b_line):\n+                display.debug(u\"become_prompt: (source=%s, state=%s): '%s'\" % (source, state, display_line))\n+                self._flags['become_prompt'] = True\n+                suppress_output = True\n+            elif self.become.success and self.become.check_success(b_line):\n+                display.debug(u\"become_success: (source=%s, state=%s): '%s'\" % (source, state, display_line))\n+                self._flags['become_success'] = True\n+                suppress_output = True\n+            elif sudoable and self.become.check_incorrect_password(b_line):\n+                display.debug(u\"become_error: (source=%s, state=%s): '%s'\" % (source, state, display_line))\n+                self._flags['become_error'] = True\n+            elif sudoable and self.become.check_missing_password(b_line):\n+                display.debug(u\"become_nopasswd_error: (source=%s, state=%s): '%s'\" % (source, state, display_line))\n+                self._flags['become_nopasswd_error'] = True\n+\n+            if not suppress_output:\n+                output.append(b_line)\n+\n+        # The chunk we read was most likely a series of complete lines, but just\n+        # in case the last line was incomplete (and not a prompt, which we would\n+        # have removed from the output), we retain it to be processed with the\n+        # next chunk.\n+\n+        remainder = b''\n+        if output and not output[-1].endswith(b'\\n'):\n+            remainder = output[-1]\n+            output = output[:-1]\n+\n+        return b''.join(output), remainder\n+\n+    def _bare_run(self, cmd, in_data, sudoable=True, checkrc=True):\n+        '''\n+        Starts the command and communicates with it until it ends.\n+        '''\n+\n+        # We don't use _shell.quote as this is run on the controller and independent from the shell plugin chosen\n+        display_cmd = u' '.join(shlex_quote(to_text(c)) for c in cmd)\n+        display.vvv(u'SSH: EXEC {0}'.format(display_cmd), host=self.host)\n+\n+        # Start the given command. If we don't need to pipeline data, we can try\n+        # to use a pseudo-tty (ssh will have been invoked with -tt). If we are\n+        # pipelining data, or can't create a pty, we fall back to using plain\n+        # old pipes.\n+\n+        p = None\n+\n+        if isinstance(cmd, (text_type, binary_type)):\n+            cmd = to_bytes(cmd)\n+        else:\n+            cmd = list(map(to_bytes, cmd))\n+\n+        conn_password = self.get_option('password') or self._play_context.password\n+\n+        if not in_data:\n+            try:\n+                # Make sure stdin is a proper pty to avoid tcgetattr errors\n+                master, slave = pty.openpty()\n+                if PY3 and conn_password:\n+                    # pylint: disable=unexpected-keyword-arg\n+                    p = subprocess.Popen(cmd, stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.PIPE, pass_fds=self.sshpass_pipe)\n+                else:\n+                    p = subprocess.Popen(cmd, stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n+                stdin = os.fdopen(master, 'wb', 0)\n+                os.close(slave)\n+            except (OSError, IOError):\n+                p = None\n+\n+        if not p:\n+            try:\n+                if PY3 and conn_password:\n+                    # pylint: disable=unexpected-keyword-arg\n+                    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,\n+                                         stderr=subprocess.PIPE, pass_fds=self.sshpass_pipe)\n+                else:\n+                    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,\n+                                         stderr=subprocess.PIPE)\n+                stdin = p.stdin\n+            except (OSError, IOError) as e:\n+                raise AnsibleError('Unable to execute ssh command line on a controller due to: %s' % to_native(e))\n+\n+        # If we are using SSH password authentication, write the password into\n+        # the pipe we opened in _build_command.\n+\n+        if conn_password:\n+            os.close(self.sshpass_pipe[0])\n+            try:\n+                os.write(self.sshpass_pipe[1], to_bytes(conn_password) + b'\\n')\n+            except OSError as e:\n+                # Ignore broken pipe errors if the sshpass process has exited.\n+                if e.errno != errno.EPIPE or p.poll() is None:\n+                    raise\n+            os.close(self.sshpass_pipe[1])\n+\n+        #\n+        # SSH state machine\n+        #\n+\n+        # Now we read and accumulate output from the running process until it\n+        # exits. Depending on the circumstances, we may also need to write an\n+        # escalation password and/or pipelined input to the process.\n+\n+        states = [\n+            'awaiting_prompt', 'awaiting_escalation', 'ready_to_send', 'awaiting_exit'\n+        ]\n+\n+        # Are we requesting privilege escalation? Right now, we may be invoked\n+        # to execute sftp/scp with sudoable=True, but we can request escalation\n+        # only when using ssh. Otherwise we can send initial data straightaway.\n+\n+        state = states.index('ready_to_send')\n+        if to_bytes(self.get_option('ssh_executable')) in cmd and sudoable:\n+            prompt = getattr(self.become, 'prompt', None)\n+            if prompt:\n+                # We're requesting escalation with a password, so we have to\n+                # wait for a password prompt.\n+                state = states.index('awaiting_prompt')\n+                display.debug(u'Initial state: %s: %s' % (states[state], to_text(prompt)))\n+            elif self.become and self.become.success:\n+                # We're requesting escalation without a password, so we have to\n+                # detect success/failure before sending any initial data.\n+                state = states.index('awaiting_escalation')\n+                display.debug(u'Initial state: %s: %s' % (states[state], to_text(self.become.success)))\n+\n+        # We store accumulated stdout and stderr output from the process here,\n+        # but strip any privilege escalation prompt/confirmation lines first.\n+        # Output is accumulated into tmp_*, complete lines are extracted into\n+        # an array, then checked and removed or copied to stdout or stderr. We\n+        # set any flags based on examining the output in self._flags.\n+\n+        b_stdout = b_stderr = b''\n+        b_tmp_stdout = b_tmp_stderr = b''\n+\n+        self._flags = dict(\n+            become_prompt=False, become_success=False,\n+            become_error=False, become_nopasswd_error=False\n+        )\n+\n+        # select timeout should be longer than the connect timeout, otherwise\n+        # they will race each other when we can't connect, and the connect\n+        # timeout usually fails\n+        timeout = 2 + self._play_context.timeout\n+        for fd in (p.stdout, p.stderr):\n+            fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)\n+\n+        # TODO: bcoca would like to use SelectSelector() when open\n+        # filehandles is low, then switch to more efficient ones when higher.\n+        # select is faster when filehandles is low.\n+        selector = selectors.DefaultSelector()\n+        selector.register(p.stdout, selectors.EVENT_READ)\n+        selector.register(p.stderr, selectors.EVENT_READ)\n+\n+        # If we can send initial data without waiting for anything, we do so\n+        # before we start polling\n+        if states[state] == 'ready_to_send' and in_data:\n+            self._send_initial_data(stdin, in_data, p)\n+            state += 1\n+\n+        try:\n+            while True:\n+                poll = p.poll()\n+                events = selector.select(timeout)\n+\n+                # We pay attention to timeouts only while negotiating a prompt.\n+\n+                if not events:\n+                    # We timed out\n+                    if state <= states.index('awaiting_escalation'):\n+                        # If the process has already exited, then it's not really a\n+                        # timeout; we'll let the normal error handling deal with it.\n+                        if poll is not None:\n+                            break\n+                        self._terminate_process(p)\n+                        raise AnsibleError('Timeout (%ds) waiting for privilege escalation prompt: %s' % (timeout, to_native(b_stdout)))\n+\n+                # Read whatever output is available on stdout and stderr, and stop\n+                # listening to the pipe if it's been closed.\n+\n+                for key, event in events:\n+                    if key.fileobj == p.stdout:\n+                        b_chunk = p.stdout.read()\n+                        if b_chunk == b'':\n+                            # stdout has been closed, stop watching it\n+                            selector.unregister(p.stdout)\n+                            # When ssh has ControlMaster (+ControlPath/Persist) enabled, the\n+                            # first connection goes into the background and we never see EOF\n+                            # on stderr. If we see EOF on stdout, lower the select timeout\n+                            # to reduce the time wasted selecting on stderr if we observe\n+                            # that the process has not yet existed after this EOF. Otherwise\n+                            # we may spend a long timeout period waiting for an EOF that is\n+                            # not going to arrive until the persisted connection closes.\n+                            timeout = 1\n+                        b_tmp_stdout += b_chunk\n+                        display.debug(u\"stdout chunk (state=%s):\\n>>>%s<<<\\n\" % (state, to_text(b_chunk)))\n+                    elif key.fileobj == p.stderr:\n+                        b_chunk = p.stderr.read()\n+                        if b_chunk == b'':\n+                            # stderr has been closed, stop watching it\n+                            selector.unregister(p.stderr)\n+                        b_tmp_stderr += b_chunk\n+                        display.debug(\"stderr chunk (state=%s):\\n>>>%s<<<\\n\" % (state, to_text(b_chunk)))\n+\n+                # We examine the output line-by-line until we have negotiated any\n+                # privilege escalation prompt and subsequent success/error message.\n+                # Afterwards, we can accumulate output without looking at it.\n+\n+                if state < states.index('ready_to_send'):\n+                    if b_tmp_stdout:\n+                        b_output, b_unprocessed = self._examine_output('stdout', states[state], b_tmp_stdout, sudoable)\n+                        b_stdout += b_output\n+                        b_tmp_stdout = b_unprocessed\n+\n+                    if b_tmp_stderr:\n+                        b_output, b_unprocessed = self._examine_output('stderr', states[state], b_tmp_stderr, sudoable)\n+                        b_stderr += b_output\n+                        b_tmp_stderr = b_unprocessed\n+                else:\n+                    b_stdout += b_tmp_stdout\n+                    b_stderr += b_tmp_stderr\n+                    b_tmp_stdout = b_tmp_stderr = b''\n+\n+                # If we see a privilege escalation prompt, we send the password.\n+                # (If we're expecting a prompt but the escalation succeeds, we\n+                # didn't need the password and can carry on regardless.)\n+\n+                if states[state] == 'awaiting_prompt':\n+                    if self._flags['become_prompt']:\n+                        display.debug(u'Sending become_password in response to prompt')\n+                        become_pass = self.become.get_option('become_pass', playcontext=self._play_context)\n+                        stdin.write(to_bytes(become_pass, errors='surrogate_or_strict') + b'\\n')\n+                        # On python3 stdin is a BufferedWriter, and we don't have a guarantee\n+                        # that the write will happen without a flush\n+                        stdin.flush()\n+                        self._flags['become_prompt'] = False\n+                        state += 1\n+                    elif self._flags['become_success']:\n+                        state += 1\n+\n+                # We've requested escalation (with or without a password), now we\n+                # wait for an error message or a successful escalation.\n+\n+                if states[state] == 'awaiting_escalation':\n+                    if self._flags['become_success']:\n+                        display.vvv(u'Escalation succeeded')\n+                        self._flags['become_success'] = False\n+                        state += 1\n+                    elif self._flags['become_error']:\n+                        display.vvv(u'Escalation failed')\n+                        self._terminate_process(p)\n+                        self._flags['become_error'] = False\n+                        raise AnsibleError('Incorrect %s password' % self.become.name)\n+                    elif self._flags['become_nopasswd_error']:\n+                        display.vvv(u'Escalation requires password')\n+                        self._terminate_process(p)\n+                        self._flags['become_nopasswd_error'] = False\n+                        raise AnsibleError('Missing %s password' % self.become.name)\n+                    elif self._flags['become_prompt']:\n+                        # This shouldn't happen, because we should see the \"Sorry,\n+                        # try again\" message first.\n+                        display.vvv(u'Escalation prompt repeated')\n+                        self._terminate_process(p)\n+                        self._flags['become_prompt'] = False\n+                        raise AnsibleError('Incorrect %s password' % self.become.name)\n+\n+                # Once we're sure that the privilege escalation prompt, if any, has\n+                # been dealt with, we can send any initial data and start waiting\n+                # for output.\n+\n+                if states[state] == 'ready_to_send':\n+                    if in_data:\n+                        self._send_initial_data(stdin, in_data, p)\n+                    state += 1\n+\n+                # Now we're awaiting_exit: has the child process exited? If it has,\n+                # and we've read all available output from it, we're done.\n+\n+                if poll is not None:\n+                    if not selector.get_map() or not events:\n+                        break\n+                    # We should not see further writes to the stdout/stderr file\n+                    # descriptors after the process has closed, set the select\n+                    # timeout to gather any last writes we may have missed.\n+                    timeout = 0\n+                    continue\n+\n+                # If the process has not yet exited, but we've already read EOF from\n+                # its stdout and stderr (and thus no longer watching any file\n+                # descriptors), we can just wait for it to exit.\n+\n+                elif not selector.get_map():\n+                    p.wait()\n+                    break\n+\n+                # Otherwise there may still be outstanding data to read.\n+        finally:\n+            selector.close()\n+            # close stdin, stdout, and stderr after process is terminated and\n+            # stdout/stderr are read completely (see also issues #848, #64768).\n+            stdin.close()\n+            p.stdout.close()\n+            p.stderr.close()\n+\n+        if C.HOST_KEY_CHECKING:\n+            if cmd[0] == b\"sshpass\" and p.returncode == 6:\n+                raise AnsibleError('Using a SSH password instead of a key is not possible because Host Key checking is enabled and sshpass does not support '\n+                                   'this.  Please add this host\\'s fingerprint to your known_hosts file to manage this host.')\n+\n+        controlpersisterror = b'Bad configuration option: ControlPersist' in b_stderr or b'unknown configuration option: ControlPersist' in b_stderr\n+        if p.returncode != 0 and controlpersisterror:\n+            raise AnsibleError('using -c ssh on certain older ssh versions may not support ControlPersist, set ANSIBLE_SSH_ARGS=\"\" '\n+                               '(or ssh_args in [ssh_connection] section of the config file) before running again')\n+\n+        # If we find a broken pipe because of ControlPersist timeout expiring (see #16731),\n+        # we raise a special exception so that we can retry a connection.\n+        controlpersist_broken_pipe = b'mux_client_hello_exchange: write packet: Broken pipe' in b_stderr\n+        if p.returncode == 255:\n+\n+            additional = to_native(b_stderr)\n+            if controlpersist_broken_pipe:\n+                raise AnsibleControlPersistBrokenPipeError('Data could not be sent because of ControlPersist broken pipe: %s' % additional)\n+\n+            elif in_data and checkrc:\n+                raise AnsibleConnectionFailure('Data could not be sent to remote host \"%s\". Make sure this host can be reached over ssh: %s'\n+                                               % (self.host, additional))\n+\n+        return (p.returncode, b_stdout, b_stderr)\n+\n+    @_ssh_retry\n+    def _run(self, cmd, in_data, sudoable=True, checkrc=True):\n+        \"\"\"Wrapper around _bare_run that retries the connection\n+        \"\"\"\n+        return self._bare_run(cmd, in_data, sudoable=sudoable, checkrc=checkrc)\n+\n+    @_ssh_retry\n+    def _file_transport_command(self, in_path, out_path, sftp_action):\n+        # scp and sftp require square brackets for IPv6 addresses, but\n+        # accept them for hostnames and IPv4 addresses too.\n+        host = '[%s]' % self.host\n+\n+        smart_methods = ['sftp', 'scp', 'piped']\n+\n+        # Windows does not support dd so we cannot use the piped method\n+        if getattr(self._shell, \"_IS_WINDOWS\", False):\n+            smart_methods.remove('piped')\n+\n+        # Transfer methods to try\n+        methods = []\n+\n+        # Use the transfer_method option if set, otherwise use scp_if_ssh\n+        ssh_transfer_method = self._play_context.ssh_transfer_method\n+        if ssh_transfer_method is not None:\n+            if not (ssh_transfer_method in ('smart', 'sftp', 'scp', 'piped')):\n+                raise AnsibleOptionsError('transfer_method needs to be one of [smart|sftp|scp|piped]')\n+            if ssh_transfer_method == 'smart':\n+                methods = smart_methods\n+            else:\n+                methods = [ssh_transfer_method]\n+        else:\n+            # since this can be a non-bool now, we need to handle it correctly\n+            scp_if_ssh = C.DEFAULT_SCP_IF_SSH\n+            if not isinstance(scp_if_ssh, bool):\n+                scp_if_ssh = scp_if_ssh.lower()\n+                if scp_if_ssh in BOOLEANS:\n+                    scp_if_ssh = boolean(scp_if_ssh, strict=False)\n+                elif scp_if_ssh != 'smart':\n+                    raise AnsibleOptionsError('scp_if_ssh needs to be one of [smart|True|False]')\n+            if scp_if_ssh == 'smart':\n+                methods = smart_methods\n+            elif scp_if_ssh is True:\n+                methods = ['scp']\n+            else:\n+                methods = ['sftp']\n+\n+        for method in methods:\n+            returncode = stdout = stderr = None\n+            if method == 'sftp':\n+                cmd = self._build_command(self.get_option('sftp_executable'), 'sftp', to_bytes(host))\n+                in_data = u\"{0} {1} {2}\\n\".format(sftp_action, shlex_quote(in_path), shlex_quote(out_path))\n+                in_data = to_bytes(in_data, nonstring='passthru')\n+                (returncode, stdout, stderr) = self._bare_run(cmd, in_data, checkrc=False)\n+            elif method == 'scp':\n+                scp = self.get_option('scp_executable')\n+\n+                if sftp_action == 'get':\n+                    cmd = self._build_command(scp, 'scp', u'{0}:{1}'.format(host, self._shell.quote(in_path)), out_path)\n+                else:\n+                    cmd = self._build_command(scp, 'scp', in_path, u'{0}:{1}'.format(host, self._shell.quote(out_path)))\n+                in_data = None\n+                (returncode, stdout, stderr) = self._bare_run(cmd, in_data, checkrc=False)\n+            elif method == 'piped':\n+                if sftp_action == 'get':\n+                    # we pass sudoable=False to disable pty allocation, which\n+                    # would end up mixing stdout/stderr and screwing with newlines\n+                    (returncode, stdout, stderr) = self.exec_command('dd if=%s bs=%s' % (in_path, BUFSIZE), sudoable=False)\n+                    with open(to_bytes(out_path, errors='surrogate_or_strict'), 'wb+') as out_file:\n+                        out_file.write(stdout)\n+                else:\n+                    with open(to_bytes(in_path, errors='surrogate_or_strict'), 'rb') as f:\n+                        in_data = to_bytes(f.read(), nonstring='passthru')\n+                    if not in_data:\n+                        count = ' count=0'\n+                    else:\n+                        count = ''\n+                    (returncode, stdout, stderr) = self.exec_command('dd of=%s bs=%s%s' % (out_path, BUFSIZE, count), in_data=in_data, sudoable=False)\n+\n+            # Check the return code and rollover to next method if failed\n+            if returncode == 0:\n+                return (returncode, stdout, stderr)\n+            else:\n+                # If not in smart mode, the data will be printed by the raise below\n+                if len(methods) > 1:\n+                    display.warning(u'%s transfer mechanism failed on %s. Use ANSIBLE_DEBUG=1 to see detailed information' % (method, host))\n+                    display.debug(u'%s' % to_text(stdout))\n+                    display.debug(u'%s' % to_text(stderr))\n+\n+        if returncode == 255:\n+            raise AnsibleConnectionFailure(\"Failed to connect to the host via %s: %s\" % (method, to_native(stderr)))\n+        else:\n+            raise AnsibleError(\"failed to transfer file to %s %s:\\n%s\\n%s\" %\n+                               (to_native(in_path), to_native(out_path), to_native(stdout), to_native(stderr)))\n+\n+    def _escape_win_path(self, path):\n+        \"\"\" converts a Windows path to one that's supported by SFTP and SCP \"\"\"\n+        # If using a root path then we need to start with /\n+        prefix = \"\"\n+        if re.match(r'^\\w{1}:', path):\n+            prefix = \"/\"\n+\n+        # Convert all '\\' to '/'\n+        return \"%s%s\" % (prefix, path.replace(\"\\\\\", \"/\"))\n+\n+    #\n+    # Main public methods\n+    #\n+    def exec_command(self, cmd, in_data=None, sudoable=True):\n+        ''' run a command on the remote host '''\n+\n+        super(Connection, self).exec_command(cmd, in_data=in_data, sudoable=sudoable)\n+\n+        display.vvv(u\"ESTABLISH SSH CONNECTION FOR USER: {0}\".format(self._play_context.remote_user), host=self._play_context.remote_addr)\n+\n+        if getattr(self._shell, \"_IS_WINDOWS\", False):\n+            # Become method 'runas' is done in the wrapper that is executed,\n+            # need to disable sudoable so the bare_run is not waiting for a\n+            # prompt that will not occur\n+            sudoable = False\n+\n+            # Make sure our first command is to set the console encoding to\n+            # utf-8, this must be done via chcp to get utf-8 (65001)\n+            cmd_parts = [\"chcp.com\", \"65001\", self._shell._SHELL_REDIRECT_ALLNULL, self._shell._SHELL_AND]\n+            cmd_parts.extend(self._shell._encode_script(cmd, as_list=True, strict_mode=False, preserve_rc=False))\n+            cmd = ' '.join(cmd_parts)\n+\n+        # we can only use tty when we are not pipelining the modules. piping\n+        # data into /usr/bin/python inside a tty automatically invokes the\n+        # python interactive-mode but the modules are not compatible with the\n+        # interactive-mode (\"unexpected indent\" mainly because of empty lines)\n+\n+        ssh_executable = self.get_option('ssh_executable') or self._play_context.ssh_executable\n+\n+        # -tt can cause various issues in some environments so allow the user\n+        # to disable it as a troubleshooting method.\n+        use_tty = self.get_option('use_tty')\n+\n+        if not in_data and sudoable and use_tty:\n+            args = ('-tt', self.host, cmd)\n+        else:\n+            args = (self.host, cmd)\n+\n+        cmd = self._build_command(ssh_executable, 'ssh', *args)\n+        (returncode, stdout, stderr) = self._run(cmd, in_data, sudoable=sudoable)\n+\n+        # When running on Windows, stderr may contain CLIXML encoded output\n+        if getattr(self._shell, \"_IS_WINDOWS\", False) and stderr.startswith(b\"#< CLIXML\"):\n+            stderr = _parse_clixml(stderr)\n+\n+        return (returncode, stdout, stderr)\n+\n+    def put_file(self, in_path, out_path):\n+        ''' transfer a file from local to remote '''\n+\n+        super(Connection, self).put_file(in_path, out_path)\n+\n+        display.vvv(u\"PUT {0} TO {1}\".format(in_path, out_path), host=self.host)\n+        if not os.path.exists(to_bytes(in_path, errors='surrogate_or_strict')):\n+            raise AnsibleFileNotFound(\"file or module does not exist: {0}\".format(to_native(in_path)))\n+\n+        if getattr(self._shell, \"_IS_WINDOWS\", False):\n+            out_path = self._escape_win_path(out_path)\n+\n+        return self._file_transport_command(in_path, out_path, 'put')\n+\n+    def fetch_file(self, in_path, out_path):\n+        ''' fetch a file from remote to local '''\n+\n+        super(Connection, self).fetch_file(in_path, out_path)\n+\n+        display.vvv(u\"FETCH {0} TO {1}\".format(in_path, out_path), host=self.host)\n+\n+        # need to add / if path is rooted\n+        if getattr(self._shell, \"_IS_WINDOWS\", False):\n+            in_path = self._escape_win_path(in_path)\n+\n+        return self._file_transport_command(in_path, out_path, 'get')\n+\n+    def reset(self):\n+        # If we have a persistent ssh connection (ControlPersist), we can ask it to stop listening.\n+        cmd = self._build_command(self.get_option('ssh_executable') or self._play_context.ssh_executable, 'ssh', '-O', 'stop', self.host)\n+        controlpersist, controlpath = self._persistence_controls(cmd)\n+        cp_arg = [a for a in cmd if a.startswith(b\"ControlPath=\")]\n+\n+        # only run the reset if the ControlPath already exists or if it isn't\n+        # configured and ControlPersist is set\n+        run_reset = False\n+        if controlpersist and len(cp_arg) > 0:\n+            cp_path = cp_arg[0].split(b\"=\", 1)[-1]\n+            if os.path.exists(cp_path):\n+                run_reset = True\n+        elif controlpersist:\n+            run_reset = True\n+\n+        if run_reset:\n+            display.vvv(u'sending stop: %s' % to_text(cmd))\n+            p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)\n+            stdout, stderr = p.communicate()\n+            status_code = p.wait()\n+            if status_code != 0:\n+                display.warning(u\"Failed to reset connection:%s\" % to_text(stderr))\n+\n+        self.close()\n+\n+    def close(self):\n+        self._connected = False\n"
+  },
+  "instance_protonmail__webclients-8afd9ce04c8dde9e150e1c2b50d32e7ee2efa3e7": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-8afd9ce04c8dde9e150e1c2b50d32e7ee2efa3e7",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-89f0432ad5dc70f1f6a30ec3a8363d548371a718": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-89f0432ad5dc70f1f6a30ec3a8363d548371a718",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-5ffba3406a7993d97ced4cc13658bee66150fcca": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-5ffba3406a7993d97ced4cc13658bee66150fcca",
+    "model_patch": ""
+  },
+  "instance_NodeBB__NodeBB-b398321a5eb913666f903a794219833926881a8f-vd59a5728dfc977f44533186ace531248c2917516": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_NodeBB__NodeBB-b398321a5eb913666f903a794219833926881a8f-vd59a5728dfc977f44533186ace531248c2917516",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-233cb1cc48635130e5602549856a6fa4ab4c087f-v35616345bb8052ea303186706cec663146f0f184": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-233cb1cc48635130e5602549856a6fa4ab4c087f-v35616345bb8052ea303186706cec663146f0f184",
+    "model_patch": ""
+  },
+  "instance_internetarchive__openlibrary-8a5a63af6e0be406aa6c8c9b6d5f28b2f1b6af5a-v0f5aece3601a5b4419f7ccec1dbda2071be28ee4": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_internetarchive__openlibrary-8a5a63af6e0be406aa6c8c9b6d5f28b2f1b6af5a-v0f5aece3601a5b4419f7ccec1dbda2071be28ee4",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-54bcdc1eefa86cc20790973d6997b60c3bba884c-v2ef375ac784985212b1805e1d0431dc8f1b3c171": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-54bcdc1eefa86cc20790973d6997b60c3bba884c-v2ef375ac784985212b1805e1d0431dc8f1b3c171",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-da91f084c0f532d9cc8ca385a701274d598057b8": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-da91f084c0f532d9cc8ca385a701274d598057b8",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-b6290e1d156af608bd79118d209a64a051c55001-v390e508d27db7a51eece36bb6d9698b63a5b638a": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-b6290e1d156af608bd79118d209a64a051c55001-v390e508d27db7a51eece36bb6d9698b63a5b638a",
+    "model_patch": ""
+  },
+  "instance_internetarchive__openlibrary-25858f9f0c165df25742acf8309ce909773f0cdd-v13642507b4fc1f8d234172bf8129942da2c2ca26": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_internetarchive__openlibrary-25858f9f0c165df25742acf8309ce909773f0cdd-v13642507b4fc1f8d234172bf8129942da2c2ca26",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-0833b5f6f140d04200ec91605f88704dd18e2970-v059c6fdc75567943479b23ebca7c07b5e9a7f34c": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-0833b5f6f140d04200ec91605f88704dd18e2970-v059c6fdc75567943479b23ebca7c07b5e9a7f34c",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-02e21636c58e86c51119b63e0fb5ca7b813b07b1": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-02e21636c58e86c51119b63e0fb5ca7b813b07b1",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-709484969c8a4ffd74b839a673431a8c5caa6457-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-709484969c8a4ffd74b839a673431a8c5caa6457-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "model_patch": ""
+  },
+  "instance_future-architect__vuls-139f3a81b66c47e6d8f70ce6c4afe7a9196a6ea8": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_future-architect__vuls-139f3a81b66c47e6d8f70ce6c4afe7a9196a6ea8",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-0cb341c926713bdfcbb490c69659a9b101df99eb": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-0cb341c926713bdfcbb490c69659a9b101df99eb",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-1501eb765873b2884b6f1944fd242ecfc9d6b103": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-1501eb765873b2884b6f1944fd242ecfc9d6b103",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-3ff75e29fb2153a2637fe7f83e49dc04b1c99c9f": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-3ff75e29fb2153a2637fe7f83e49dc04b1c99c9f",
+    "model_patch": ""
+  },
+  "instance_navidrome__navidrome-8d56ec898e776e7e53e352cb9b25677975787ffc": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_navidrome__navidrome-8d56ec898e776e7e53e352cb9b25677975787ffc",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-86906cbfc3a5d3629a583f98e6301142f5f14bdb-v6bea0cc3a6fc532d7da914314f2944fc1cd04dee": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-86906cbfc3a5d3629a583f98e6301142f5f14bdb-v6bea0cc3a6fc532d7da914314f2944fc1cd04dee",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-507170da0f7f4da330f6732bffdf11c4df7fc192": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-507170da0f7f4da330f6732bffdf11c4df7fc192",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-dd3977957a67bedaf604ad6ca255ba8c7b6704e9": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-dd3977957a67bedaf604ad6ca255ba8c7b6704e9",
+    "model_patch": ""
+  },
+  "instance_navidrome__navidrome-d8e794317f788198227e10fb667e10496b3eb99a": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_navidrome__navidrome-d8e794317f788198227e10fb667e10496b3eb99a",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-e594593dae52badf80ffd27878d2275c7f0b20e9": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-e594593dae52badf80ffd27878d2275c7f0b20e9",
+    "model_patch": ""
+  },
+  "instance_navidrome__navidrome-9c3b4561652a15846993d477003e111f0df0c585": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_navidrome__navidrome-9c3b4561652a15846993d477003e111f0df0c585",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-8302d467d160f869b77184e262adbe2fbc95d9ba-vce94f93ad1030e3136852817f2423c1b3ac37bc4": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-8302d467d160f869b77184e262adbe2fbc95d9ba-vce94f93ad1030e3136852817f2423c1b3ac37bc4",
+    "model_patch": ""
+  },
+  "instance_internetarchive__openlibrary-798055d1a19b8fa0983153b709f460be97e33064-v13642507b4fc1f8d234172bf8129942da2c2ca26": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_internetarchive__openlibrary-798055d1a19b8fa0983153b709f460be97e33064-v13642507b4fc1f8d234172bf8129942da2c2ca26",
+    "model_patch": ""
+  },
+  "instance_element-hq__element-web-18c03daa865d3c5b10e52b669cd50be34c67b2e5-vnan": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_element-hq__element-web-18c03daa865d3c5b10e52b669cd50be34c67b2e5-vnan",
+    "model_patch": ""
+  },
+  "instance_navidrome__navidrome-f7d4fcdcc1a59d1b4f835519efb402897757e371": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_navidrome__navidrome-f7d4fcdcc1a59d1b4f835519efb402897757e371",
+    "model_patch": ""
+  },
+  "instance_tutao__tutanota-1e516e989b3c0221f4af6b297d9c0e4c43e4adc3-vbc0d9ba8f0071fbe982809910959a6ff8884dbbf": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_tutao__tutanota-1e516e989b3c0221f4af6b297d9c0e4c43e4adc3-vbc0d9ba8f0071fbe982809910959a6ff8884dbbf",
+    "model_patch": ""
+  },
+  "instance_future-architect__vuls-01441351c3407abfc21c48a38e28828e1b504e0c": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_future-architect__vuls-01441351c3407abfc21c48a38e28828e1b504e0c",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-42355d181a11b51ebfc56f6f4b3d9c74e01cb13b-v1055803c3a812189a1133297f7f5468579283f86": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-42355d181a11b51ebfc56f6f4b3d9c74e01cb13b-v1055803c3a812189a1133297f7f5468579283f86",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-47530e1fd8bfb84ec096ebcbbc29990f30829655-vee9b09fb20c43af7e520f57e9239bbcf46b7113d": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-47530e1fd8bfb84ec096ebcbbc29990f30829655-vee9b09fb20c43af7e520f57e9239bbcf46b7113d",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-ea9a2663b176da329b3f574da2ce2a664fc5b4a1": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-ea9a2663b176da329b3f574da2ce2a664fc5b4a1",
+    "model_patch": ""
+  },
+  "instance_NodeBB__NodeBB-a917210c5b2c20637094545401f85783905c074c-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_NodeBB__NodeBB-a917210c5b2c20637094545401f85783905c074c-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e",
+    "model_patch": ""
+  },
+  "instance_navidrome__navidrome-27875ba2dd1673ddf8affca526b0664c12c3b98b": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_navidrome__navidrome-27875ba2dd1673ddf8affca526b0664c12c3b98b",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-21a935ad7886cc50c46852be21b37f363a926af0": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-21a935ad7886cc50c46852be21b37f363a926af0",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-87a593518b6ce94624f6c28516ce38cc30cbea5a": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-87a593518b6ce94624f6c28516ce38cc30cbea5a",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-e15d26630934d0b6415ed2295ac42fd570a57620-va0fd88aac89cde702ec1ba84877234da33adce8a": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-e15d26630934d0b6415ed2295ac42fd570a57620-va0fd88aac89cde702ec1ba84877234da33adce8a",
+    "model_patch": ""
+  },
+  "instance_NodeBB__NodeBB-84e065752f6d7fbe5c08cbf50cb173ffb866b8fa-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_NodeBB__NodeBB-84e065752f6d7fbe5c08cbf50cb173ffb866b8fa-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-08bb09914d0d37b0cd6376d4cab5b77728a43e7b": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-08bb09914d0d37b0cd6376d4cab5b77728a43e7b",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-748f534312f2073a25a87871f5bd05882891b8c4-v0f01c69f1e2528b935359cfe578530722bca2c59": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-748f534312f2073a25a87871f5bd05882891b8c4-v0f01c69f1e2528b935359cfe578530722bca2c59",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-5f0745dd6993bb1430a951c62a49807c6635cd77": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-5f0745dd6993bb1430a951c62a49807c6635cd77",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-5260527c4a71bfed99d803e687dd19619423b134-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-5260527c4a71bfed99d803e687dd19619423b134-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-56a620b8fc9ef7a0819b47709aa541cdfdbba00b": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-56a620b8fc9ef7a0819b47709aa541cdfdbba00b",
+    "model_patch": ""
+  },
+  "instance_element-hq__element-web-71fe08ea0f159ccb707904d87f0a4aef205a167c-vnan": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_element-hq__element-web-71fe08ea0f159ccb707904d87f0a4aef205a167c-vnan",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-8be4f6cb9380fcd2e67bcb18cef931ae0d4b869c": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-8be4f6cb9380fcd2e67bcb18cef931ae0d4b869c",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-36ade4bba504eb96f05d32ceab9972df7eb17bcc-v2ef375ac784985212b1805e1d0431dc8f1b3c171": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-36ade4bba504eb96f05d32ceab9972df7eb17bcc-v2ef375ac784985212b1805e1d0431dc8f1b3c171",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-e22e103cdf8edc56ff7d9b848a58f94f1471a263-v1055803c3a812189a1133297f7f5468579283f86": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-e22e103cdf8edc56ff7d9b848a58f94f1471a263-v1055803c3a812189a1133297f7f5468579283f86",
+    "model_patch": ""
+  },
+  "instance_NodeBB__NodeBB-0f788b8eaa4bba3c142d171fd941d015c53b65fc-v0ec6d6c2baf3cb4797482ce4829bc25cd5716649": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_NodeBB__NodeBB-0f788b8eaa4bba3c142d171fd941d015c53b65fc-v0ec6d6c2baf3cb4797482ce4829bc25cd5716649",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-3fd8e12949b8feda401930574facf09dd4180bba": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-3fd8e12949b8feda401930574facf09dd4180bba",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-b4bb5e13006a729bc0eed8fe6ea18cff54acdacb": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-b4bb5e13006a729bc0eed8fe6ea18cff54acdacb",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-492cc0b158200089dceede3b1aba0ed28df3fb1d": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-492cc0b158200089dceede3b1aba0ed28df3fb1d",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-6fe76d024ee0c50ddb09c86f4ae0bd4c208fd65f": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-6fe76d024ee0c50ddb09c86f4ae0bd4c208fd65f",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-e64622cd2df5b521342cf4a62e0d4cb8f8c9ae5a-v363c8a7e5ccdf6968fc7ab84a2053ac78036691d": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-e64622cd2df5b521342cf4a62e0d4cb8f8c9ae5a-v363c8a7e5ccdf6968fc7ab84a2053ac78036691d",
+    "model_patch": ""
+  },
+  "instance_element-hq__element-web-776ffa47641c7ec6d142ab4a47691c30ebf83c2e": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_element-hq__element-web-776ffa47641c7ec6d142ab4a47691c30ebf83c2e",
+    "model_patch": ""
+  },
+  "instance_tutao__tutanota-4b4e45949096bb288f2b522f657610e480efa3e8-vee878bb72091875e912c52fc32bc60ec3760227b": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_tutao__tutanota-4b4e45949096bb288f2b522f657610e480efa3e8-vee878bb72091875e912c52fc32bc60ec3760227b",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-8bd3604dc54b681f1f0f7dd52cbc70b3024184b6": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-8bd3604dc54b681f1f0f7dd52cbc70b3024184b6",
+    "model_patch": ""
+  },
+  "instance_future-architect__vuls-5af1a227339e46c7abf3f2815e4c636a0c01098e": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_future-architect__vuls-5af1a227339e46c7abf3f2815e4c636a0c01098e",
+    "model_patch": ""
+  },
+  "instance_future-architect__vuls-e3c27e1817d68248043bd09d63cc31f3344a6f2c": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_future-architect__vuls-e3c27e1817d68248043bd09d63cc31f3344a6f2c",
+    "model_patch": ""
+  },
+  "instance_tutao__tutanota-51818218c6ae33de00cbea3a4d30daac8c34142e-vc4e41fd0029957297843cb9dec4a25c7c756f029": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_tutao__tutanota-51818218c6ae33de00cbea3a4d30daac8c34142e-vc4e41fd0029957297843cb9dec4a25c7c756f029",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-9a21e247786ebd294dafafca1105fcd770ff46c6-v67cdaa49f89b34e42b69d5b7830b3c3ad3d8803f": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-9a21e247786ebd294dafafca1105fcd770ff46c6-v67cdaa49f89b34e42b69d5b7830b3c3ad3d8803f",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-1330415d33a27594c948a36d9d7701f496229e9f": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-1330415d33a27594c948a36d9d7701f496229e9f",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-5c225dc0f5bfa677addeac100a8018df3f3a9db1-v173091e2e36d38c978002990795f66cfc0af30ad": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-5c225dc0f5bfa677addeac100a8018df3f3a9db1-v173091e2e36d38c978002990795f66cfc0af30ad",
+    "model_patch": ""
+  },
+  "instance_element-hq__element-web-772df3021201d9c73835a626df8dcb6334ad9a3e-vnan": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_element-hq__element-web-772df3021201d9c73835a626df8dcb6334ad9a3e-vnan",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-40007b9d97e3862bcef8c20ae6c87b22ea0627f0": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-40007b9d97e3862bcef8c20ae6c87b22ea0627f0",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-65438e6e44b6ce51458d09b7bb028a2797cfb0ea-vce94f93ad1030e3136852817f2423c1b3ac37bc4": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-65438e6e44b6ce51458d09b7bb028a2797cfb0ea-vce94f93ad1030e3136852817f2423c1b3ac37bc4",
+    "model_patch": ""
+  },
+  "instance_future-architect__vuls-4b680b996061044e93ef5977a081661665d3360a": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_future-architect__vuls-4b680b996061044e93ef5977a081661665d3360a",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-106909db8b730480615f4a33de0eb5b710944e78-v0f01c69f1e2528b935359cfe578530722bca2c59": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-106909db8b730480615f4a33de0eb5b710944e78-v0f01c69f1e2528b935359cfe578530722bca2c59",
+    "model_patch": ""
+  },
+  "instance_internetarchive__openlibrary-7f6b722a10f822171501d027cad60afe53337732-ve8c8d62a2b60610a3c4631f5f23ed866bada9818": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_internetarchive__openlibrary-7f6b722a10f822171501d027cad60afe53337732-ve8c8d62a2b60610a3c4631f5f23ed866bada9818",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-65581fef4aa807540cb933753d085feb0d7e736f": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-65581fef4aa807540cb933753d085feb0d7e736f",
+    "model_patch": ""
+  },
+  "instance_future-architect__vuls-bff6b7552370b55ff76d474860eead4ab5de785a-v1151a6325649aaf997cd541ebe533b53fddf1b07": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_future-architect__vuls-bff6b7552370b55ff76d474860eead4ab5de785a-v1151a6325649aaf997cd541ebe533b53fddf1b07",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-2f66db85455f4b22a47ffd853738f679b439593c": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-2f66db85455f4b22a47ffd853738f679b439593c",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-cba6ebbd0707caa524ffee51c62b197f6122c902": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-cba6ebbd0707caa524ffee51c62b197f6122c902",
+    "model_patch": ""
+  },
+  "instance_protonmail__webclients-caf10ba9ab2677761c88522d1ba8ad025779c492": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_protonmail__webclients-caf10ba9ab2677761c88522d1ba8ad025779c492",
+    "model_patch": ""
+  },
+  "instance_tutao__tutanota-befce4b146002b9abc86aa95f4d57581771815ce-vee878bb72091875e912c52fc32bc60ec3760227b": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_tutao__tutanota-befce4b146002b9abc86aa95f4d57581771815ce-vee878bb72091875e912c52fc32bc60ec3760227b",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-a02e22e902a69aeb465f16bf03f7f5a91b2cb828-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-a02e22e902a69aeb465f16bf03f7f5a91b2cb828-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-007235446f85b1cbaef92664c3b3867517250f21": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-007235446f85b1cbaef92664c3b3867517250f21",
+    "model_patch": ""
+  },
+  "instance_internetarchive__openlibrary-1351c59fd43689753de1fca32c78d539a116ffc1-v29f82c9cf21d57b242f8d8b0e541525d259e2d63": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_internetarchive__openlibrary-1351c59fd43689753de1fca32c78d539a116ffc1-v29f82c9cf21d57b242f8d8b0e541525d259e2d63",
+    "model_patch": ""
+  },
+  "instance_future-architect__vuls-c11ba27509f733d7d280bdf661cbbe2e7a99df4c": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_future-architect__vuls-c11ba27509f733d7d280bdf661cbbe2e7a99df4c",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-37c3724d0d6637e959e39408ee351565d73afe71-vee9b09fb20c43af7e520f57e9239bbcf46b7113d": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-37c3724d0d6637e959e39408ee351565d73afe71-vee9b09fb20c43af7e520f57e9239bbcf46b7113d",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-ef5ba1a0360b39f9eff027fbdc57f363597c3c3b-v363c8a7e5ccdf6968fc7ab84a2053ac78036691d": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-ef5ba1a0360b39f9eff027fbdc57f363597c3c3b-v363c8a7e5ccdf6968fc7ab84a2053ac78036691d",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-9f8127f225a86245fa35dca4885c2daef824ee55": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-9f8127f225a86245fa35dca4885c2daef824ee55",
+    "model_patch": ""
+  },
+  "instance_element-hq__element-web-ad26925bb6628260cfe0fcf90ec0a8cba381f4a4-vnan": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_element-hq__element-web-ad26925bb6628260cfe0fcf90ec0a8cba381f4a4-vnan",
+    "model_patch": ""
+  },
+  "instance_qutebrowser__qutebrowser-de4a1c1a2839b5b49c3d4ce21d39de48d24e2091-v2ef375ac784985212b1805e1d0431dc8f1b3c171": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_qutebrowser__qutebrowser-de4a1c1a2839b5b49c3d4ce21d39de48d24e2091-v2ef375ac784985212b1805e1d0431dc8f1b3c171",
+    "model_patch": ""
+  },
+  "instance_ansible__ansible-b748edea457a4576847a10275678127895d2f02f-v1055803c3a812189a1133297f7f5468579283f86": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_ansible__ansible-b748edea457a4576847a10275678127895d2f02f-v1055803c3a812189a1133297f7f5468579283f86",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-5c7037ececb0bead0a8eb56054e224bcd7ac5922": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-5c7037ececb0bead0a8eb56054e224bcd7ac5922",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-e91615cf07966da41756017a7d571f9fc0fdbe80": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-e91615cf07966da41756017a7d571f9fc0fdbe80",
+    "model_patch": ""
+  },
+  "instance_flipt-io__flipt-ee02b164f6728d3227c42671028c67a4afd36918": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_flipt-io__flipt-ee02b164f6728d3227c42671028c67a4afd36918",
+    "model_patch": ""
+  },
+  "instance_tutao__tutanota-f373ac3808deefce8183dad8d16729839cc330c1-v2939aa9f4356f0dc9f523ee5ce19d09e08ab979b": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_tutao__tutanota-f373ac3808deefce8183dad8d16729839cc330c1-v2939aa9f4356f0dc9f523ee5ce19d09e08ab979b",
+    "model_patch": ""
+  },
+  "instance_gravitational__teleport-4f771403dc4177dc26ee0370f7332f3fe54bee0f-vee9b09fb20c43af7e520f57e9239bbcf46b7113d": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_gravitational__teleport-4f771403dc4177dc26ee0370f7332f3fe54bee0f-vee9b09fb20c43af7e520f57e9239bbcf46b7113d",
+    "model_patch": ""
+  },
+  "instance_tutao__tutanota-da4edb7375c10f47f4ed3860a591c5e6557f7b5c-vbc0d9ba8f0071fbe982809910959a6ff8884dbbf": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_tutao__tutanota-da4edb7375c10f47f4ed3860a591c5e6557f7b5c-vbc0d9ba8f0071fbe982809910959a6ff8884dbbf",
+    "model_patch": ""
+  },
+  "instance_element-hq__element-web-5e8488c2838ff4268f39db4a8cca7d74eecf5a7e-vnan": {
+    "model_name_or_path": "anthropic/claude-haiku-4-5",
+    "instance_id": "instance_element-hq__element-web-5e8488c2838ff4268f39db4a8cca7d74eecf5a7e-vnan",
+    "model_patch": ""
+  }
+}

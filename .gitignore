@@ -45,6 +45,17 @@ build/
 
 # New experiment results (keep original data, ignore new runs)
 # Add specific files you want to keep to git with: git add -f <file>
+# Note: *.json / *.jsonl only apply to *new* files — anything already
+# tracked (e.g. eval outputs and pred files committed prior to these
+# patterns) remains tracked.
 checkpoints*/
 *.json
 *.jsonl
+
+# SWE-Bench Pro mini-swe-agent run outputs (multi-GB trajectories,
+# preds.json, logs). Configs / data / scripts are tracked, results are not.
+swebench_pro/results/
+
+# Cloned upstream SWE-bench Pro evaluation repo (set up by
+# swebench_pro/scripts/setup_eval_repo.sh).
+swebench_pro/external/
