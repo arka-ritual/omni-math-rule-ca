@@ -11,6 +11,8 @@ from peft import LoraConfig, prepare_model_for_kbit_training
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import DPOConfig, DPOTrainer
 
+from abstention_ft_train_sft import EpochSnapshotCallback
+
 TARGET_MODULES = r"model\.language_model\.layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(gate_proj|up_proj|down_proj))"
 
 
@@ -62,7 +64,23 @@ def main():
     p.add_argument("--lora_alpha", type=int, default=32)
     p.add_argument("--max_grad_norm", type=float, default=1.0)
     p.add_argument("--learning_rate_full", type=float, default=None)
+    p.add_argument(
+        "--save_epochs",
+        type=float,
+        nargs="+",
+        default=None,
+        help="If set, save snapshots at each (fractional) epoch milestone into "
+             "{output_dir}/epoch-{tag}/, disabling the default end-of-epoch saves. "
+             "All values must be <= --num_train_epochs.",
+    )
     args = p.parse_args()
+
+    if args.save_epochs:
+        bad = [ep for ep in args.save_epochs if ep > args.num_train_epochs + 1e-9]
+        if bad:
+            raise ValueError(
+                f"--save_epochs values exceed --num_train_epochs={args.num_train_epochs}: {bad}"
+            )
 
     tokenizer = AutoTokenizer.from_pretrained(args.base_model, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
@@ -122,8 +140,8 @@ def main():
         bf16=True,
         gradient_checkpointing=True,
         logging_steps=args.logging_steps,
-        save_strategy="epoch",
-        save_total_limit=1,
+        save_strategy="no" if args.save_epochs else "epoch",
+        save_total_limit=None if args.save_epochs else 1,
         seed=args.seed,
         report_to="none",
         remove_unused_columns=False,
@@ -132,6 +150,10 @@ def main():
         precompute_ref_log_probs=True,
     )
 
+    snapshot_cb = None
+    if args.save_epochs:
+        snapshot_cb = EpochSnapshotCallback(args.save_epochs, args.output_dir, tokenizer)
+
     trainer = DPOTrainer(
         model=model,
         ref_model=None,
@@ -139,10 +161,16 @@ def main():
         train_dataset=train_dataset,
         processing_class=tokenizer,
         peft_config=peft_config,
+        callbacks=[snapshot_cb] if snapshot_cb else None,
     )
+    if snapshot_cb is not None:
+        snapshot_cb.attach(trainer)
+
     trainer.train()
-    trainer.save_model(args.output_dir)
-    tokenizer.save_pretrained(args.output_dir)
+
+    if not args.save_epochs:
+        trainer.save_model(args.output_dir)
+        tokenizer.save_pretrained(args.output_dir)
 
 
 if __name__ == "__main__":

@@ -168,7 +168,7 @@ def _system_for_row(rubric, mix_components, row_idx, mix_seed):
     rubric, deterministically samples one of mix_components based on (row_idx, seed)."""
     if mix_components is None:
         return PROMPTS[rubric], rubric
-    rng = random.Random((mix_seed, row_idx))
+    rng = random.Random(hash((mix_seed, row_idx)) & 0xFFFFFFFF)
     chosen = rng.choice(mix_components)
     return PROMPTS[chosen], chosen
 
@@ -414,7 +414,9 @@ def main():
                                 make(r, sys_text, canonical, tokenizer, k, row_rubric)
                             )
 
-                        random.Random((args.seed, n, int(p_abst * 100))).shuffle(out_rows)
+                        random.Random(
+                            hash((args.seed, n, int(p_abst * 100))) & 0xFFFFFFFF
+                        ).shuffle(out_rows)
 
                         p_pct = int(round(p_abst * 100))
                         out_path = os.path.join(

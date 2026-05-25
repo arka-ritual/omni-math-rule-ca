@@ -1,12 +1,68 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 from dataclasses import dataclass
 
 import torch
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from torch.utils.data import Dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, Trainer, TrainingArguments
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    Trainer,
+    TrainerCallback,
+    TrainingArguments,
+)
+
+
+def epoch_tag(ep: float) -> str:
+    """Filesystem-friendly tag for an epoch milestone (1.0 -> '1', 0.5 -> '0p5')."""
+    s = ("%g" % float(ep))
+    return s.replace(".", "p")
+
+
+class EpochSnapshotCallback(TrainerCallback):
+    """Save full model+tokenizer snapshots when training crosses each target epoch.
+
+    Lets one training run produce N intermediate checkpoints along its LR schedule
+    (e.g. train for 8 epochs once, save snapshots at {0.5, 1, 2, 3, 5, 8}) instead
+    of running N independent fine-tunes from scratch.
+    """
+
+    def __init__(self, save_epochs, output_dir, tokenizer):
+        self.targets = sorted({float(e) for e in save_epochs})
+        self.fired = set()
+        self.output_dir = output_dir
+        self.tokenizer = tokenizer
+        self.trainer = None
+
+    def attach(self, trainer):
+        self.trainer = trainer
+
+    def _maybe_snapshot(self, state):
+        if self.trainer is None:
+            return
+        cur_epoch = float(state.epoch or 0.0)
+        for ep in self.targets:
+            if ep in self.fired:
+                continue
+            # Fire as soon as the running epoch counter reaches the milestone
+            # (HF Trainer's state.epoch is fractional, updated after each step).
+            if cur_epoch + 1e-9 >= ep:
+                save_dir = os.path.join(self.output_dir, f"epoch-{epoch_tag(ep)}")
+                os.makedirs(save_dir, exist_ok=True)
+                self.trainer.save_model(save_dir)
+                self.tokenizer.save_pretrained(save_dir)
+                self.fired.add(ep)
+                print(f"[snapshot] epoch={cur_epoch:.4f} -> {save_dir}")
+
+    def on_step_end(self, args, state, control, **kwargs):
+        self._maybe_snapshot(state)
+
+    def on_train_end(self, args, state, control, **kwargs):
+        self._maybe_snapshot(state)
 
 TARGET_MODULES = r"model\.language_model\.layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(gate_proj|up_proj|down_proj))"
 
@@ -157,7 +213,24 @@ def main():
     )
     p.add_argument("--learning_rate_full", type=float, default=None,
                    help="Optional override LR when --peft_mode full (else --learning_rate is used).")
+    p.add_argument(
+        "--save_epochs",
+        type=float,
+        nargs="+",
+        default=None,
+        help="If set, save a checkpoint snapshot at each of these (fractional) epoch "
+             "milestones into {output_dir}/epoch-{tag}/. Disables the default "
+             "save_strategy='epoch' so no extra end-of-epoch checkpoints are written. "
+             "All milestones must be <= --num_train_epochs.",
+    )
     args = p.parse_args()
+
+    if args.save_epochs:
+        bad = [ep for ep in args.save_epochs if ep > args.num_train_epochs + 1e-9]
+        if bad:
+            raise ValueError(
+                f"--save_epochs values exceed --num_train_epochs={args.num_train_epochs}: {bad}"
+            )
 
     tokenizer = AutoTokenizer.from_pretrained(args.base_model, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
@@ -183,22 +256,32 @@ def main():
         bf16=True,
         gradient_checkpointing=args.gradient_checkpointing or args.peft_mode == "full",
         logging_steps=args.logging_steps,
-        save_strategy="epoch",
-        save_total_limit=1,
+        save_strategy="no" if args.save_epochs else "epoch",
+        save_total_limit=None if args.save_epochs else 1,
         seed=args.seed,
         report_to="none",
         remove_unused_columns=False,
     )
+
+    snapshot_cb = None
+    if args.save_epochs:
+        snapshot_cb = EpochSnapshotCallback(args.save_epochs, args.output_dir, tokenizer)
 
     trainer = Trainer(
         model=model,
         args=train_args,
         train_dataset=SFTDataset(args.train_file, tokenizer, args.max_seq_length),
         data_collator=Collator(tokenizer),
+        callbacks=[snapshot_cb] if snapshot_cb else None,
     )
+    if snapshot_cb is not None:
+        snapshot_cb.attach(trainer)
+
     trainer.train()
-    trainer.save_model(args.output_dir)
-    tokenizer.save_pretrained(args.output_dir)
+
+    if not args.save_epochs:
+        trainer.save_model(args.output_dir)
+        tokenizer.save_pretrained(args.output_dir)
 
 
 if __name__ == "__main__":
