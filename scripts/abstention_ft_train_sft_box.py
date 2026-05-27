@@ -46,20 +46,34 @@ class SFTBoxDataset(Dataset):
         supervised_suffix = row.get("supervised_suffix", "")
 
         full = render(self.tokenizer, messages, add_generation_prompt=False)
-        enc = self.tokenizer(full, add_special_tokens=False)
+        enc = self.tokenizer(full, add_special_tokens=False, return_offsets_mapping=True)
         full_ids = enc["input_ids"]
+        offsets = enc.get("offset_mapping")
 
         if len(full_ids) > self.max_len:
             raise ValueError(f"Overlength sft_box example idx={row.get('idx')}: {len(full_ids)} > {self.max_len}")
 
-        # Mask everything before the last occurrence of supervised_suffix in full.
-        # supervised_suffix sits at the tail of the assistant content; rfind locates it
-        # robustly regardless of what closing tokens the chat template appends after it.
-        idx = full.rfind(supervised_suffix) if supervised_suffix else -1
-        if idx != -1:
-            prefix_text = full[:idx]
-            mask_len = len(self.tokenizer(prefix_text, add_special_tokens=False)["input_ids"])
-        else:
+        # Align the supervised window via the tokenizer's offset_mapping.
+        # Naive `len(tok(full[:char_idx]))` masking can be wrong by one token
+        # because BPE/SentencePiece may fuse the suffix's leading character
+        # with neighbouring chars in `full` (e.g. for "\boxed{...}" the leading
+        # "\" gets merged into a "$$\\" token in context but tokenizes as a
+        # standalone "\\" token in isolation — so neither character-length nor
+        # token-subsequence matching works). offset_mapping is the only
+        # correct way: find the first token whose span covers (or starts at)
+        # the suffix's start char, and mask everything strictly before it.
+        mask_len = None
+        if supervised_suffix and offsets is not None:
+            char_idx = full.rfind(supervised_suffix)
+            if char_idx != -1:
+                for t, (s, e) in enumerate(offsets):
+                    # First token that overlaps the suffix region. If a token
+                    # straddles the boundary (s < char_idx < e), supervise it
+                    # so the suffix's leading character isn't silently dropped.
+                    if e > char_idx:
+                        mask_len = t
+                        break
+        if mask_len is None:
             # Fallback: standard prompt-only masking.
             prompt = render(self.tokenizer, messages[:2], add_generation_prompt=True)
             mask_len = len(self.tokenizer(prompt, add_special_tokens=False)["input_ids"])

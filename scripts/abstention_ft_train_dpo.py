@@ -16,6 +16,93 @@ from abstention_ft_train_sft import EpochSnapshotCallback
 TARGET_MODULES = r"model\.language_model\.layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(gate_proj|up_proj|down_proj))"
 
 
+def _patch_selective_log_softmax(chunk_size: int = 1024) -> None:
+    """Chunk-and-checkpoint trl.trainer.utils.selective_log_softmax over the sequence dim.
+
+    Why: Gemma 4 E2B has a 262k-token vocab, so on a long DPO example
+    (~14k tokens, chosen+rejected stacked → batch 2) the raw logits tensor
+    is ~15 GiB in bf16 (~30 GiB fp32). The stock impl loops over batch but
+    keeps each full [seq, vocab] row materialized; `F.log_softmax` then
+    upcasts to fp32 internally, allocating another ~15 GiB temporary, and
+    autograd needs to keep the full pre-softmax logits alive for backward.
+    Even an 80GB A100 OOMs.
+
+    The fix processes the (seq, vocab) tensor in fixed-size seq-dim chunks
+    inside `torch.utils.checkpoint` so (a) the fp32 log-softmax temporary
+    is only one chunk's worth (~1 GiB at chunk_size=1024 for Gemma's
+    vocab), and (b) backward recomputes per chunk instead of saving the
+    full logits. Functionally identical to the stock implementation.
+    """
+    from trl.trainer import utils as _trl_utils
+    from torch.utils.checkpoint import checkpoint
+
+    def _chunked_selective_log_softmax(logits, index):
+        squeeze = index.ndim == logits.ndim - 1
+        if squeeze:
+            index = index.unsqueeze(-1)
+
+        per_row_outs = []
+        for row_logits, row_index in zip(logits, index):
+            seq_len = row_logits.shape[0]
+            chunk_outs = []
+            for start in range(0, seq_len, chunk_size):
+                end = min(start + chunk_size, seq_len)
+                lg_chunk = row_logits[start:end]
+                ix_chunk = row_index[start:end]
+
+                def _compute(lg, ix):
+                    logps = torch.nn.functional.log_softmax(lg, dim=-1)
+                    return logps.gather(dim=-1, index=ix)
+
+                # use_reentrant=False is required for non-leaf inputs (logits has grad_fn)
+                if lg_chunk.requires_grad:
+                    out = checkpoint(_compute, lg_chunk, ix_chunk, use_reentrant=False)
+                else:
+                    out = _compute(lg_chunk, ix_chunk)
+                chunk_outs.append(out)
+            per_row_outs.append(torch.cat(chunk_outs, dim=0))
+        per_token_logps = torch.stack(per_row_outs)
+        if squeeze:
+            per_token_logps = per_token_logps.squeeze(-1)
+        return per_token_logps
+
+    _trl_utils.selective_log_softmax = _chunked_selective_log_softmax
+    # The DPOTrainer imports the symbol at module load time, so rebind there too.
+    from trl.trainer import dpo_trainer as _dpo_trainer
+    _dpo_trainer.selective_log_softmax = _chunked_selective_log_softmax
+
+
+_patch_selective_log_softmax()
+
+
+def _patch_accelerate_fp32_conversion() -> None:
+    """Replace `accelerate.utils.convert_outputs_to_fp32` with a no-op.
+
+    Why: with `bf16=True`, `Accelerator.prepare_model` wraps the model's
+    forward in a function that calls `.float()` on every output tensor.
+    For a Gemma DPO step (chosen+rejected stacked → batch 2 at ~14k
+    tokens, vocab 262144) that means an unconditional
+    2 × 14701 × 262144 × 4 B ≈ 30 GiB allocation just to upcast the
+    logits — instant OOM even after every other memory fix. We don't
+    need fp32 outputs: the chunked selective_log_softmax above upcasts
+    only one small chunk at a time inside log_softmax.
+
+    Two rebinds are needed because `accelerate/accelerator.py` does
+    `from accelerate.utils import ..., convert_outputs_to_fp32, ...`
+    at module load time, so patching only the source module is too late.
+    """
+    def _noop(model_forward):
+        return model_forward
+
+    from accelerate.utils import operations as _accel_ops
+    from accelerate import accelerator as _accel_mod
+    _accel_ops.convert_outputs_to_fp32 = _noop
+    _accel_mod.convert_outputs_to_fp32 = _noop
+
+
+_patch_accelerate_fp32_conversion()
+
+
 def read_jsonl(path):
     with open(path, "r", encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
@@ -130,6 +217,7 @@ def main():
         beta=args.dpo_beta,
         num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
+        per_device_eval_batch_size=1,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=lr,
         optim="paged_adamw_8bit",
