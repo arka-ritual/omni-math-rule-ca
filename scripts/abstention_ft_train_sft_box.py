@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 from dataclasses import dataclass
 
 import torch
@@ -177,6 +178,17 @@ def main():
              "{output_dir}/epoch-{tag}/, disabling the default end-of-epoch saves. "
              "All values must be <= --num_train_epochs.",
     )
+    p.add_argument(
+        "--report_to",
+        nargs="+",
+        default=["tensorboard"],
+        help="HF Trainer report_to integrations (tensorboard, wandb, none, ...).",
+    )
+    p.add_argument(
+        "--logging_dir",
+        default=None,
+        help="Directory for TB event files. Default: {output_dir}/runs.",
+    )
     args = p.parse_args()
 
     if args.save_epochs:
@@ -213,7 +225,8 @@ def main():
         save_strategy="no" if args.save_epochs else "epoch",
         save_total_limit=None if args.save_epochs else 1,
         seed=args.seed,
-        report_to="none",
+        report_to=args.report_to,
+        logging_dir=args.logging_dir or os.path.join(args.output_dir, "runs"),
         remove_unused_columns=False,
     )
 
