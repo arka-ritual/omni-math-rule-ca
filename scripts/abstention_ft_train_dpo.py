@@ -11,7 +11,7 @@ from peft import LoraConfig, prepare_model_for_kbit_training
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import DPOConfig, DPOTrainer
 
-from abstention_ft_train_sft import EpochSnapshotCallback
+from abstention_ft_train_sft import EpochSnapshotCallback, default_run_name
 
 TARGET_MODULES = r"model\.language_model\.layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(gate_proj|up_proj|down_proj))"
 
@@ -171,6 +171,12 @@ def main():
         default=None,
         help="Directory for TB event files. Default: {output_dir}/runs.",
     )
+    p.add_argument(
+        "--run_name",
+        default=None,
+        help="Run name for W&B/TB. Default: auto-generated from method, model, "
+             "learning_rate, lora_r, and dataset balance.",
+    )
     args = p.parse_args()
 
     if args.save_epochs:
@@ -223,6 +229,15 @@ def main():
     if args.peft_mode == "full" and args.learning_rate_full is not None:
         lr = args.learning_rate_full
 
+    run_name = args.run_name or default_run_name(
+        method="dpo",
+        base_model=args.base_model,
+        lr=lr,
+        lora_r=args.lora_r if args.peft_mode == "qlora" else None,
+        train_file=args.train_file,
+    )
+    os.environ.setdefault("WANDB_NAME", run_name)
+
     dpo_args = DPOConfig(
         output_dir=args.output_dir,
         beta=args.dpo_beta,
@@ -244,6 +259,7 @@ def main():
         seed=args.seed,
         report_to=args.report_to,
         logging_dir=args.logging_dir or os.path.join(args.output_dir, "runs"),
+        run_name=run_name,
         remove_unused_columns=False,
         max_length=args.max_seq_length,
         truncation_mode="keep_start",

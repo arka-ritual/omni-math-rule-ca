@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 from dataclasses import dataclass
 
 import torch
@@ -21,6 +22,37 @@ def epoch_tag(ep: float) -> str:
     """Filesystem-friendly tag for an epoch milestone (1.0 -> '1', 0.5 -> '0p5')."""
     s = ("%g" % float(ep))
     return s.replace(".", "p")
+
+
+def _short_model_slug(base_model: str) -> str:
+    """`google/gemma-4-E2B-it` -> `gemma-4-E2B-it`."""
+    return os.path.basename(base_model.rstrip("/"))
+
+
+def _p_tag_from_train_file(train_file: str) -> str | None:
+    """Extract the dataset abstention-balance tag (e.g. `p50`) from filenames
+    like `sft_n500_quant_m25_k512_p50.jsonl`. Returns None if absent."""
+    m = re.search(r"_p(\d+)\.jsonl$", os.path.basename(train_file))
+    return f"p{int(m.group(1)):02d}" if m else None
+
+
+def _format_lr(lr: float) -> str:
+    """Compact LR rendering, e.g. 2e-05 -> `2e-5`, 5.5e-06 -> `5p5e-6`."""
+    s = f"{lr:.0e}" if lr < 1e-3 else f"{lr:g}"
+    return s.replace(".", "p").replace("e-0", "e-").replace("e+0", "e+")
+
+
+def default_run_name(method: str, base_model: str, lr: float,
+                     lora_r: int | None, train_file: str) -> str:
+    """Build a default W&B / TB run name encoding the experiment axes the user
+    explicitly cares about: method, model, learning_rate, lora_r, p_abst."""
+    parts = [method, _short_model_slug(base_model), f"lr{_format_lr(lr)}"]
+    if lora_r is not None:
+        parts.append(f"r{lora_r}")
+    p_tag = _p_tag_from_train_file(train_file)
+    if p_tag:
+        parts.append(p_tag)
+    return "_".join(parts)
 
 
 class EpochSnapshotCallback(TrainerCallback):
@@ -235,6 +267,13 @@ def main():
         default=None,
         help="Directory for TB event files. Default: {output_dir}/runs.",
     )
+    p.add_argument(
+        "--run_name",
+        default=None,
+        help="Run name for W&B/TB. Default: auto-generated from method, model, "
+             "learning_rate, lora_r, and dataset balance (e.g. "
+             "`sft_gemma-4-E2B-it_lr2e-5_r16_p50`).",
+    )
     args = p.parse_args()
 
     if args.save_epochs:
@@ -253,6 +292,15 @@ def main():
     lr = args.learning_rate
     if args.peft_mode == "full" and args.learning_rate_full is not None:
         lr = args.learning_rate_full
+
+    run_name = args.run_name or default_run_name(
+        method="sft",
+        base_model=args.base_model,
+        lr=lr,
+        lora_r=args.lora_r if args.peft_mode == "qlora" else None,
+        train_file=args.train_file,
+    )
+    os.environ.setdefault("WANDB_NAME", run_name)
 
     train_args = TrainingArguments(
         output_dir=args.output_dir,
@@ -273,6 +321,7 @@ def main():
         seed=args.seed,
         report_to=args.report_to,
         logging_dir=args.logging_dir or os.path.join(args.output_dir, "runs"),
+        run_name=run_name,
         remove_unused_columns=False,
     )
 
