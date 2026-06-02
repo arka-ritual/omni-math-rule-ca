@@ -519,6 +519,15 @@ def main():
                          "Anthropic; extra_body.enable_thinking for Qwen). "
                          "Default 'medium' to match aysm-ca's working setup. "
                          "Pass 'none' to disable.")
+    ap.add_argument("--enable-thinking", action="store_true",
+                    help="Enable chat-template 'thinking mode' by sending "
+                         "extra_body.chat_template_kwargs.enable_thinking=true. "
+                         "This is the knob a vLLM OpenAI server applies when "
+                         "rendering the chat template for models like Gemma 4 / "
+                         "Qwen3.5 — the same `enable_thinking=True` used by the "
+                         "Omni-MATH-Rule vLLM eval (inference_vllm.py). Unlike "
+                         "--reasoning-effort (a no-op for Gemma), this actually "
+                         "turns thinking on for self-served local checkpoints.")
     args = ap.parse_args()
 
     output_path = Path(args.output)
@@ -536,9 +545,19 @@ def main():
     mk = dict(config["model"].get("model_kwargs") or {})
     mk["timeout"] = float(args.api_timeout)
     inject_reasoning_kwargs(args.model, args.reasoning_effort, mk)
+    if args.enable_thinking:
+        # Mirror inference_vllm.py's apply_chat_template(enable_thinking=True):
+        # for an OpenAI-compatible vLLM server this is forwarded as
+        # extra_body.chat_template_kwargs and applied at prompt-render time.
+        eb = dict(mk.get("extra_body") or {})
+        ctk = dict(eb.get("chat_template_kwargs") or {})
+        ctk["enable_thinking"] = True
+        eb["chat_template_kwargs"] = ctk
+        mk["extra_body"] = eb
     config["model"]["model_kwargs"] = mk
     logger.info(
-        f"Final model_kwargs (reasoning_effort={args.reasoning_effort}): "
+        f"Final model_kwargs (reasoning_effort={args.reasoning_effort}, "
+        f"enable_thinking={args.enable_thinking}): "
         f"{ {k: v for k, v in mk.items() if k != 'api_key'} }"
     )
 

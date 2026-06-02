@@ -5,7 +5,7 @@ import glob
 import json
 import os
 
-PROMPTS = ["standard", "ultra_cautious", "QP4", "QP7", "quant_m25", "quant_m100"]
+PROMPTS = ["standard", "ultra_cautious", "QP1", "QP4", "QP7", "quant_m5","quant_m25", "quant_m100"]
 
 
 def read_json(path):
@@ -132,10 +132,12 @@ def main():
         correct, incorrect, abstained, total, attempted_acc = cautious_counts(read_json(metric_path(args.output_root, variant, prompt)))
         total = total or count_jsonl(f)
         utility = None
+        if prompt == "quant_m5" and correct is not None:
+            utility = (correct - 5 * incorrect) / 100
         if prompt == "quant_m25" and correct is not None:
-            utility = (correct - 25 * incorrect) / 99
+            utility = (correct - 25 * incorrect) / 100
         if prompt == "quant_m100" and correct is not None:
-            utility = (correct - 100 * incorrect) / 99
+            utility = (correct - 100 * incorrect) / 100
         if method == "original" and utility is not None:
             original_utility[(base, prompt)] = utility
         rows.append({
