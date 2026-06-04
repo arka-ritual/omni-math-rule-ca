@@ -11,7 +11,11 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 from abstention_ft_train_sft import EpochSnapshotCallback, default_run_name
 
-TARGET_MODULES = r"model\.language_model\.layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(gate_proj|up_proj|down_proj))"
+# `language_model.` is optional so this matches both multimodal models whose
+# text decoder is nested (Gemma 4: model.language_model.layers.N.…) and
+# text-only models (Qwen3.5: model.layers.N.…). Staying anchored to the
+# decoder `layers` path keeps Gemma's vision_tower/embed_audio out of LoRA.
+TARGET_MODULES = r"model\.(language_model\.)?layers\.\d+\.(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(gate_proj|up_proj|down_proj))"
 
 
 def read_jsonl(path):
