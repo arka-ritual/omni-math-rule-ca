@@ -99,31 +99,49 @@ def main():
         else:
             shutil.copy2(os.path.realpath(src), dst)
 
-    # Single-shard models only for now (Gemma 4 E2B is single-shard).
-    shard_files = [f for f in os.listdir(base_dir)
-                   if f.startswith("model") and f.endswith(".safetensors")]
-    assert len(shard_files) == 1, (
-        f"Multi-shard models not yet supported (found {shard_files}). "
-        "Extend this script to iterate per-shard.")
-    shard_in = os.path.join(base_dir, shard_files[0])
-    shard_out = os.path.join(args.out_dir, shard_files[0])
+    # Enumerate weight shards. Single-shard models (e.g. Gemma 4 E2B) have one
+    # `model.safetensors`; large models (e.g. Qwen3.5-9B) are sharded as
+    # `model-00001-of-0000N.safetensors` alongside a `model.safetensors.index.json`.
+    # The `.index.json` ends in `.json`, so the `.safetensors` filter excludes it.
+    shard_files = sorted(
+        f for f in os.listdir(base_dir)
+        if f.startswith("model") and f.endswith(".safetensors")
+    )
+    if not shard_files:
+        raise RuntimeError(f"No model*.safetensors found in {base_dir}")
+    print(f"[merge_lora] {len(shard_files)} shard(s): {shard_files}")
 
-    # Possible weight-name suffixes for LoRA targets:
-    #   "<module>.weight"           — standard
-    candidates_for = lambda m: [m + ".weight"]
+    # Map an adapter module name to its candidate on-disk weight key(s).
+    # The adapter records modules under the *in-memory* module path that peft
+    # saw at train time, which can differ from the *on-disk* safetensors key by
+    # a "language_model." segment: transformers applies a checkpoint-conversion
+    # mapping at load time. Concretely, Qwen3.5-9B stores
+    # "model.language_model.layers.N..." on disk but exposes
+    # "model.layers.N..." in memory (Gemma 4 keeps "language_model" in both).
+    # Try the name as-is and with the segment inserted/removed.
+    def candidates_for(m: str) -> list[str]:
+        variants = [m]
+        if ".language_model." in m:
+            variants.append(m.replace(".language_model.", ".", 1))
+        elif m.startswith("model."):
+            variants.append("model.language_model." + m[len("model."):])
+        return [v + ".weight" for v in variants]
 
-    # Index target tensor names so we can match adapter module names like
-    # "model.language_model.layers.0.mlp.down_proj" to safetensor keys.
-    with safe_open(shard_in, framework="pt") as f:
-        all_keys = list(f.keys())
-    all_keys_set = set(all_keys)
+    # Build a global key -> shard map across ALL shards so adapter module names
+    # (e.g. "model.layers.0.self_attn.q_proj") can be resolved regardless of
+    # which shard the weight physically lives in.
+    key_to_shard: dict[str, str] = {}
+    for shard in shard_files:
+        with safe_open(os.path.join(base_dir, shard), framework="pt") as f:
+            for key in f.keys():
+                key_to_shard[key] = shard
 
-    merged_targets = 0
+    # Resolve each LoRA target module to its base weight key (validated globally).
+    target_to_weight_key: dict[str, str] = {}
     missing = []
-    target_to_weight_key = {}
     for module in by_module.keys():
         for c in candidates_for(module):
-            if c in all_keys_set:
+            if c in key_to_shard:
                 target_to_weight_key[module] = c
                 break
         else:
@@ -138,40 +156,53 @@ def main():
 
     print(f"[merge_lora] resolved {len(target_to_weight_key)} LoRA→base weight mappings")
 
-    # Stream through all base tensors, applying LoRA delta where applicable.
-    new_tensors: dict[str, torch.Tensor] = {}
+    # Invert to weight_key -> module, then group the modules to merge per shard.
+    weight_key_to_module = {wk: m for m, wk in target_to_weight_key.items()}
+
+    # Stream through each shard, applying LoRA deltas to its own keys only, and
+    # write the merged shard out under the identical filename + key set.
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    with safe_open(shard_in, framework="pt") as f:
-        for key in all_keys:
-            t = f.get_tensor(key)
-            module = None
-            for m, wk in target_to_weight_key.items():
-                if wk == key:
-                    module = m
-                    break
-            if module is not None:
-                A = by_module[module]["A"].to(device=device, dtype=torch.float32)
-                B = by_module[module]["B"].to(device=device, dtype=torch.float32)
-                # peft layout: W is [out, in]; A is [r, in]; B is [out, r];
-                # delta = B @ A → [out, in]
-                W = t.to(device=device, dtype=torch.float32)
-                delta = (B @ A) * scaling
-                W = W + delta
-                t = W.to(dtype=t.dtype).cpu()
-                del A, B, W, delta
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                merged_targets += 1
-            new_tensors[key] = t
+    merged_targets = 0
+    for shard in shard_files:
+        shard_in = os.path.join(base_dir, shard)
+        shard_out = os.path.join(args.out_dir, shard)
+        new_tensors: dict[str, torch.Tensor] = {}
+        shard_merged = 0
+        with safe_open(shard_in, framework="pt") as f:
+            meta = f.metadata() or {}
+            for key in f.keys():
+                t = f.get_tensor(key)
+                module = weight_key_to_module.get(key)
+                if module is not None:
+                    A = by_module[module]["A"].to(device=device, dtype=torch.float32)
+                    B = by_module[module]["B"].to(device=device, dtype=torch.float32)
+                    # peft layout: W is [out, in]; A is [r, in]; B is [out, r];
+                    # delta = B @ A → [out, in]
+                    W = t.to(device=device, dtype=torch.float32)
+                    delta = (B @ A) * scaling
+                    W = W + delta
+                    t = W.to(dtype=t.dtype).cpu()
+                    del A, B, W, delta
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    shard_merged += 1
+                new_tensors[key] = t
+        print(f"[merge_lora] writing {shard_out} "
+              f"({len(new_tensors)} tensors, {shard_merged} merged)")
+        save_file(new_tensors, shard_out, metadata=meta)
+        merged_targets += shard_merged
 
-    assert merged_targets == len(target_to_weight_key)
-    print(f"[merge_lora] merged {merged_targets} weight matrices")
+    assert merged_targets == len(target_to_weight_key), (
+        f"merged {merged_targets} but expected {len(target_to_weight_key)}")
+    print(f"[merge_lora] merged {merged_targets} weight matrices total")
 
-    print(f"[merge_lora] writing {shard_out} ({len(new_tensors)} tensors)")
-    # Preserve safetensors metadata if any.
-    with safe_open(shard_in, framework="pt") as f:
-        meta = f.metadata() or {}
-    save_file(new_tensors, shard_out, metadata=meta)
+    # For multi-shard models, copy the weight index so the output is loadable.
+    # Keys and shard filenames are preserved verbatim, so the base index stays valid.
+    index_name = "model.safetensors.index.json"
+    base_index = os.path.join(base_dir, index_name)
+    if os.path.exists(base_index):
+        shutil.copy2(os.path.realpath(base_index), os.path.join(args.out_dir, index_name))
+        print(f"[merge_lora] copied {index_name}")
     print("[merge_lora] done.")
 
 
