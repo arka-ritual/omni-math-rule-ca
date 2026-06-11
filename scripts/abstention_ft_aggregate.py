@@ -4,6 +4,7 @@ import csv
 import glob
 import json
 import os
+import re
 
 PROMPTS = ["standard", "ultra_cautious", "QP1", "QP4", "QP7", "quant_m5","quant_m25", "quant_m100"]
 
@@ -29,7 +30,10 @@ _KNOWN_BASE_SLUGS = ["gemma4_e2b", "qwen35_9b"]
 _KNOWN_TUNE_MODES = ["qlora", "full"]
 
 
-_KNOWN_RUBRICS = ["quant_m100", "quant_m25", "mix_m25_m100"]
+_KNOWN_RUBRICS = ["quant_m100", "quant_m25", "mix_m25_m100", "mix_m5_m25"]
+
+# Randomized-penalty train rubric, e.g. "quant_randi_1_100" (per-row r_i ~ -U{1..100}).
+_RAND_RUBRIC_RE = re.compile(r"quant_randi_\d+_\d+")
 
 
 def variant_meta(variant):
@@ -38,6 +42,8 @@ def variant_meta(variant):
     New format (preferred):
       {base}_{tune}_{method}_n{N}_{rubric}_k{K}_p{PP}
         e.g. gemma4_e2b_qlora_sft_n1000_quant_m25_k512_p50
+        rubric may be a fixed name (quant_m25), a mix (mix_m5_m25,
+        mix_m25_m100), or a randomized-penalty rubric (quant_randi_1_100).
 
     Old format (still supported for legacy results):
       {base}_{method}_n{N}_{rubric}_k{K}
@@ -67,7 +73,11 @@ def variant_meta(variant):
 
     size = int(next(p[1:] for p in parts if p.startswith("n") and p[1:].isdigit()))
     prefix_k = int(next(p[1:] for p in parts if p.startswith("k") and p[1:].isdigit()))
-    rubric = next((r for r in _KNOWN_RUBRICS if r in rest), "quant_m25")
+    rand_match = _RAND_RUBRIC_RE.search(rest)
+    if rand_match:
+        rubric = rand_match.group(0)
+    else:
+        rubric = next((r for r in _KNOWN_RUBRICS if r in rest), "quant_m25")
 
     p_parts = [p[1:] for p in parts if p.startswith("p") and p[1:].isdigit()]
     p_abst_pct = int(p_parts[0]) if p_parts else 50  # legacy default = 50/50
@@ -115,7 +125,7 @@ def main():
 
     files = sorted(glob.glob(os.path.join(args.results_dir, "*__*.jsonl")))
     if args.prompt:
-        files = [f for f in files if os.path.basename(f).endswith(f"__{args.prompt}.jsonl")]
+        files = [f for f in files if os.path.basename(f).startswith("qwen35_9b") and os.path.basename(f).endswith(f"__{args.prompt}.jsonl")]
     variants = sorted({os.path.basename(f).split("__", 1)[0] for f in files})
     std_acc = {v: standard_math_acc(args.output_root, v) for v in variants}
 

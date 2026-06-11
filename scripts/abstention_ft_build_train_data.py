@@ -35,7 +35,13 @@ FIXED_ABSTENTION = """I am not sufficiently confident that I can answer this cor
 # Add more here when needed; aggregator parsing matches "mix_*" by prefix.
 MIX_RUBRICS = {
     "mix_m25_m100": ["quant_m25", "quant_m100"],
+    "mix_m5_m25": ["quant_m5", "quant_m25"],
 }
+
+# Randomized-penalty rubrics: "quant_randi_{lo}_{hi}" renders, per row, the
+# quantitative rubric (r_c=1, r_a=0, r_i=-X) with X ~ Uniform{lo..hi} (integer).
+# e.g. quant_randi_1_100 -> incorrect penalty uniformly in [1, 100].
+_RAND_RUBRIC_RE = re.compile(r"^quant_randi_(\d+)_(\d+)$")
 
 
 def read_jsonl(path):
@@ -163,9 +169,18 @@ def target(row, tokenizer, k):
     return abstention_completion(row, tokenizer, k)
 
 
-def _system_for_row(rubric, mix_components, row_idx, mix_seed):
-    """For a fixed-rubric set, returns that rubric's prompt text. For a mix
-    rubric, deterministically samples one of mix_components based on (row_idx, seed)."""
+def _system_for_row(rubric, mix_components, rand_spec, row_idx, mix_seed):
+    """Returns (system_prompt, row_rubric) for one row.
+
+    - rand_spec set: sample X ~ Uniform{lo..hi} deterministically per row and
+      render the quantitative rubric (r_c, r_a, r_i=-X). row_rubric = "quant_m{X}".
+    - mix_components set: deterministically sample one component per (row_idx, seed).
+    - otherwise: the fixed rubric's prompt text."""
+    if rand_spec is not None:
+        rng = random.Random(hash((mix_seed, row_idx, "randi")) & 0xFFFFFFFF)
+        x = rng.randint(rand_spec["lo"], rand_spec["hi"])
+        system = BUILD_QUANT(rand_spec["r_c"], -x, rand_spec["r_a"])
+        return system, f"quant_m{x}"
     if mix_components is None:
         return PROMPTS[rubric], rubric
     rng = random.Random(hash((mix_seed, row_idx)) & 0xFFFFFFFF)
@@ -271,17 +286,27 @@ def select(rows, classification, seed):
 
 
 def _resolve_rubric(rubric_name):
-    """Returns (canonical_name, mix_components_or_None, representative_system)."""
+    """Returns (canonical_name, mix_components_or_None, representative_system, rand_spec_or_None)."""
+    m = _RAND_RUBRIC_RE.match(rubric_name)
+    if m:
+        lo, hi = int(m.group(1)), int(m.group(2))
+        if not (1 <= lo <= hi):
+            raise ValueError(
+                f"Bad random rubric '{rubric_name}': need 1 <= lo <= hi (got {lo}, {hi})."
+            )
+        rand_spec = {"r_c": 1, "r_a": 0, "lo": lo, "hi": hi}
+        # Representative prompt for length filtering: largest penalty (longest number).
+        return rubric_name, None, BUILD_QUANT(1, -hi, 0), rand_spec
     if rubric_name in MIX_RUBRICS:
         components = MIX_RUBRICS[rubric_name]
         # Use the first component's prompt for length filtering as a representative
         # (mixes only differ in numeric penalty; lengths are nearly identical).
-        return rubric_name, components, PROMPTS[components[0]]
+        return rubric_name, components, PROMPTS[components[0]], None
     if rubric_name in PROMPTS:
-        return rubric_name, None, PROMPTS[rubric_name]
+        return rubric_name, None, PROMPTS[rubric_name], None
     raise ValueError(
-        f"Unknown rubric '{rubric_name}'. Add it to inference/prompts.py PROMPTS "
-        f"or to MIX_RUBRICS in this file."
+        f"Unknown rubric '{rubric_name}'. Add it to inference/prompts.py PROMPTS, "
+        f"to MIX_RUBRICS in this file, or use a 'quant_randi_<lo>_<hi>' randomized rubric."
     )
 
 
@@ -324,8 +349,10 @@ def main():
         "--rubrics",
         nargs="+",
         default=["quant_m25"],
-        help="Rubric names from PROMPTS, or registered mix-rubric names "
-             f"({sorted(MIX_RUBRICS)}).",
+        help="Rubric names from PROMPTS, registered mix-rubric names "
+             f"({sorted(MIX_RUBRICS)}), or a randomized-penalty rubric "
+             "'quant_randi_<lo>_<hi>' (per-row r_i=-X, X~Uniform{lo..hi}; "
+             "e.g. quant_randi_1_100).",
     )
     p.add_argument("--prefix_ks", type=int, nargs="+", default=[512, 1024])
     p.add_argument("--methods", nargs="+", default=["sft", "dpo", "sft_box"])
@@ -346,10 +373,12 @@ def main():
 
     sys.path.insert(0, os.path.join(os.getcwd(), "inference"))
     from prompts import PROMPTS as _PROMPTS  # noqa: F401
+    from prompts import build_quantitative_grading as _bqg  # noqa: F401
 
-    # Make PROMPTS visible to the helpers in this module.
-    global PROMPTS
+    # Make PROMPTS / the rubric factory visible to the helpers in this module.
+    global PROMPTS, BUILD_QUANT
     PROMPTS = _PROMPTS
+    BUILD_QUANT = _bqg
 
     tokenizer = AutoTokenizer.from_pretrained(args.base_model, trust_remote_code=True)
     rows = [
@@ -369,7 +398,7 @@ def main():
             raise ValueError(f"Unknown method '{m}'. Known: {list(method_specs)}")
 
     for rubric_name in args.rubrics:
-        canonical, mix_components, repr_system = _resolve_rubric(rubric_name)
+        canonical, mix_components, repr_system, rand_spec = _resolve_rubric(rubric_name)
         for k in args.prefix_ks:
             for method in args.methods:
                 fits, make = method_specs[method]
@@ -408,7 +437,7 @@ def main():
                         out_rows = []
                         for r in selected:
                             sys_text, row_rubric = _system_for_row(
-                                canonical, mix_components, r["idx"], args.mix_seed
+                                canonical, mix_components, rand_spec, r["idx"], args.mix_seed
                             )
                             out_rows.append(
                                 make(r, sys_text, canonical, tokenizer, k, row_rubric)
