@@ -16,9 +16,11 @@ OUTPUT_MD = "evaluation/output/abstention_ft/combined_abstention_summary.md"
 
 MODEL_DISPLAY = {"gemma4_e2b": "Gemma 4 E2B", "qwen35_9b": "Qwen3.5-9B"}
 METHOD_DISPLAY = {"dpo": "DPO", "sft_box": "SFT-Box", "sft": "SFT"}
-FRAMING_ORDER = ["quant_m5", "quant_m25", "quant_m100", "QP1", "QP4", "QP7"]
+FRAMING_ORDER = ["quant_m0_25", "quant_m1", "quant_m5", "quant_m25", "quant_m100",
+                 "QP1", "QP4", "QP7"]
 FRAMING_RANK = {f: i for i, f in enumerate(FRAMING_ORDER)}
-QUANT_PENALTY = {"quant_m5": 5, "quant_m25": 25, "quant_m100": 100}
+QUANT_PENALTY = {"quant_m0_25": 0.25, "quant_m1": 1, "quant_m5": 5,
+                 "quant_m25": 25, "quant_m100": 100}
 
 
 def epoch_from_slug(slug: str) -> float:
@@ -113,7 +115,7 @@ def main():
     out.append("Tables grouped by (model, training method, train-dataset abstention %). "
                "Each row is a (framing × epoch) eval cell. Normalized Utility = "
                "`(correct − penalty × incorrect) / total` for quantitative framings "
-               "(penalty 5/25/100); left blank for qualitative QP framings.")
+               "(penalty 0.25/1/5/25/100); left blank for qualitative QP framings.")
     out.append("")
 
     for key in sorted(groups, key=lambda k: (model_rank(k[0]), method_rank(k[1]), k[2])):

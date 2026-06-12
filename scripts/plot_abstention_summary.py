@@ -32,11 +32,14 @@ SWE_ERROR_STATUSES = {
 MODEL_DISPLAY = {"gemma4_e2b": "Gemma 4 E2B", "qwen35_9b": "Qwen3.5-9B"}
 METHOD_DISPLAY = {"sft_box": "SFT-Box", "dpo": "DPO"}
 METHOD_ORDER = ["sft_box", "dpo"]
-FRAMING_ORDER = ["quant_m5", "quant_m25", "quant_m100", "QP1", "QP4", "QP7"]
-QUANT_FRAMINGS = ["quant_m5", "quant_m25", "quant_m100"]
-QUANT_PENALTY = {"quant_m5": 5, "quant_m25": 25, "quant_m100": 100}
+FRAMING_ORDER = ["quant_m0_25", "quant_m1", "quant_m5", "quant_m25", "quant_m100",
+                 "QP1", "QP4", "QP7"]
+QUANT_FRAMINGS = ["quant_m0_25", "quant_m1", "quant_m5", "quant_m25", "quant_m100"]
+QUANT_PENALTY = {"quant_m0_25": 0.25, "quant_m1": 1, "quant_m5": 5,
+                 "quant_m25": 25, "quant_m100": 100}
 FRAMING_COLOR = {
-    "quant_m5": "#1f77b4", "quant_m25": "#d62728", "quant_m100": "#2ca02c",
+    "quant_m0_25": "#17becf", "quant_m1": "#7f7f7f", "quant_m5": "#1f77b4",
+    "quant_m25": "#d62728", "quant_m100": "#2ca02c",
     "QP1": "#9467bd", "QP4": "#ff7f0e", "QP7": "#8c564b",
 }
 IN_DIST = "quant_m25"  # training rubric

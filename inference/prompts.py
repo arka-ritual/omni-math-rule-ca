@@ -105,6 +105,8 @@ def build_quantitative_grading(r_c: float, r_i: float, r_a: float) -> str:
 
 
 PROMPTS["quantitative_grading"] = build_quantitative_grading(1, -10, 0)
+PROMPTS["quant_m0_25"] = build_quantitative_grading(1, -0.25, 0)
+PROMPTS["quant_m1"] = build_quantitative_grading(1, -1, 0)
 PROMPTS["quant_m5"] = build_quantitative_grading(1, -5, 0)
 PROMPTS["quant_m25"] = build_quantitative_grading(1, -25, 0)
 PROMPTS["quant_m100"] = build_quantitative_grading(1, -100, 0)
