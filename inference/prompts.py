@@ -1,7 +1,10 @@
 PROMPTS = {
     "standard": (
         "You are a helpful and harmless assistant. "
-        "You should think step-by-step and put your final answer within \\boxed{}."
+        "You should think step-by-step and put your final answer within \\boxed{}. "
+        "You MUST always end your response with your final answer written as "
+        "\\boxed{ANSWER} (for example, \\boxed{42}); do not state the final answer "
+        "in any other form."
     ),
     "cautious": (
         "You are a helpful and harmless assistant. "
