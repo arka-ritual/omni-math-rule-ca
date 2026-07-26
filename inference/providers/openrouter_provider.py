@@ -93,7 +93,7 @@ class OpenRouterProvider(Provider):
         for attempt in range(max_retries):
             try:
                 response = await self.client.chat.completions.create(**create_kwargs)
-                return _chat_response_to_meta(response)
+                return self._with_upstream(response)
             except (openai.RateLimitError, openai.APIStatusError) as e:
                 if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
                     raise
@@ -101,4 +101,19 @@ class OpenRouterProvider(Provider):
                 print(f"[retry {attempt+1}/{max_retries}] {e} — waiting {wait}s")
                 await asyncio.sleep(wait)
         response = await self.client.chat.completions.create(**create_kwargs)
-        return _chat_response_to_meta(response)
+        return self._with_upstream(response)
+
+    @staticmethod
+    def _with_upstream(response) -> dict:
+        """Standard metadata plus the upstream that actually served the request.
+
+        OpenRouter echoes the serving provider (e.g. "Novita", "StreamLake") in
+        a non-standard top-level `provider` field. When routing is left free —
+        no `order` pin — the upstream, and with it the quantization (fp4 vs
+        fp8), is chosen per request. Recording it per item means an unpinned run
+        can still be audited after the fact: we can report the upstream mix, and
+        detect if a cell was served by several.
+        """
+        meta = _chat_response_to_meta(response)
+        meta["upstream_provider"] = getattr(response, "provider", None)
+        return meta

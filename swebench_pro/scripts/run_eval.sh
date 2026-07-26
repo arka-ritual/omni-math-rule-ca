@@ -8,8 +8,10 @@
 #      With --gold, instead extract gold patches from the HF dataset.
 #   3. Build <rundir>/eval/eval_data.jsonl from the upstream
 #      `helper_code/sweap_eval_full_v2.jsonl` (filter + key rename).
-#   4. cd into the upstream repo and invoke swe_bench_pro_eval.py with
-#      --use_local_docker.
+#   4. cd into the upstream repo and invoke swe_bench_pro_eval.py. By default
+#      that runs with --use_local_docker (upstream's beta path, needs the
+#      multi-GB test image pulled locally per instance). Pass --modal to drop
+#      the flag and use upstream's recommended Modal backend instead.
 #
 # Output:
 #   <rundir>/eval/eval_results.json    -- {instance_id: bool} pass/fail
@@ -17,12 +19,12 @@
 #
 # Usage:
 #   bash swebench_pro/scripts/run_eval.sh <rundir> [--workers N] [--gold]
-#       [--dockerhub-username jefzda] [--block-network]
+#       [--modal] [--dockerhub-username jefzda] [--block-network]
 
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 <rundir> [--workers N] [--gold] [--dockerhub-username U] [--block-network]" >&2
+    echo "Usage: $0 <rundir> [--workers N] [--gold] [--modal] [--dockerhub-username U] [--block-network]" >&2
     exit 2
 fi
 
@@ -31,6 +33,11 @@ WORKERS="${WORKERS:-1}"
 GOLD=0
 DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-jefzda}"
 BLOCK_NETWORK=""
+# Execution backend for the upstream grader. Local Docker is upstream's beta
+# path and needs the multi-GB test image pulled onto this machine per
+# instance; Modal is upstream's recommended (default) path and runs each
+# instance's test suite in the cloud. See --modal below.
+USE_LOCAL_DOCKER="--use_local_docker"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -38,6 +45,7 @@ while [ $# -gt 0 ]; do
         --gold)                 GOLD=1; shift ;;
         --dockerhub-username)   DOCKERHUB_USERNAME="$2"; shift 2 ;;
         --block-network)        BLOCK_NETWORK="--block_network"; shift ;;
+        --modal)                USE_LOCAL_DOCKER=""; shift ;;
         *) echo "Unknown flag: $1" >&2; exit 2 ;;
     esac
 done
@@ -67,7 +75,11 @@ fi
 #   `sum(eval_results.values()) / len(eval_results)`
 # and exit 1, breaking the orchestrator (run_interventions.sh) for what
 # is actually a legitimate, well-behaved outcome.
-NPATCHES="$(python -c "import json; print(len(json.load(open('$RUNDIR/eval/patches_for_eval.json'))))")"
+# The path goes in as argv, not interpolated into the -c string. Under Git Bash
+# $RUNDIR is a POSIX path (/c/Users/...) that Windows Python cannot open; MSYS
+# rewrites it to a Windows path only when it is a standalone argument, not when
+# it is buried inside a larger string.
+NPATCHES="$(python -c "import json,sys; print(len(json.load(open(sys.argv[1]))))" "$RUNDIR/eval/patches_for_eval.json")"
 if [ "$NPATCHES" -eq 0 ]; then
     echo "[eval] 0 patches to evaluate (every instance abstained or produced no patch)."
     echo "[eval] Skipping upstream swe_bench_pro_eval.py and writing empty eval_results.json."
@@ -84,9 +96,9 @@ if [ "$GOLD" -eq 1 ]; then
     # Use the ids that ended up in patches_for_eval.json (upstream uses prefixed ids).
     python -c "
 import json, sys
-ids = [p['instance_id'] for p in json.load(open('$RUNDIR/eval/patches_for_eval.json'))]
+ids = [p['instance_id'] for p in json.load(open(sys.argv[1]))]
 sys.stdout.write('\n'.join(ids))
-" > "$RUNDIR/eval/_ids.txt"
+" "$RUNDIR/eval/patches_for_eval.json" > "$RUNDIR/eval/_ids.txt"
     python "$HERE/build_eval_data.py" --ids "$RUNDIR/eval/_ids.txt" \
         --upstream "$UPSTREAM" --output "$RUNDIR/eval/eval_data.jsonl"
 else
@@ -95,7 +107,7 @@ fi
 
 # 4. Run the official eval (must be invoked from inside upstream repo
 #    because it reads dockerfiles/ relative to cwd).
-echo "[eval] Running swe_bench_pro_eval.py (workers=$WORKERS, dockerhub_username=$DOCKERHUB_USERNAME)"
+echo "[eval] Running swe_bench_pro_eval.py (workers=$WORKERS, dockerhub_username=$DOCKERHUB_USERNAME,${USE_LOCAL_DOCKER:+ local-docker}${USE_LOCAL_DOCKER:- modal})"
 (
     cd "$UPSTREAM"
     python swe_bench_pro_eval.py \
@@ -105,7 +117,7 @@ echo "[eval] Running swe_bench_pro_eval.py (workers=$WORKERS, dockerhub_username
         --scripts_dir run_scripts \
         --num_workers "$WORKERS" \
         --dockerhub_username "$DOCKERHUB_USERNAME" \
-        --use_local_docker \
+        $USE_LOCAL_DOCKER \
         $BLOCK_NETWORK
 )
 

@@ -203,20 +203,29 @@ def _build_environment(
     *,
     reuse_container_id: str | None = None,
 ):
-    """Build a DockerEnvironmentWithAbstain for a Pro instance and, if
-    intervention id != 0 and we're starting fresh, install the
-    intervention tools into the container.
+    """Build the environment for a Pro instance and, if intervention id != 0
+    and we're starting fresh, install the intervention tools into it.
 
-    `reuse_container_id` activates the resume path: skip `docker run`,
+    `reuse_container_id` activates the resume path: skip container creation,
     reattach to an existing container, and skip tool install (the tools
     were installed by the previous (interrupted) run).
 
-    Returns the env. We always use DockerEnvironmentWithAbstain (it's a
-    superset of DockerEnvironment, so it's safe even for the vanilla case).
+    Returns the env. We always use the *WithAbstain class (it's a superset of
+    DockerEnvironment, so it's safe even for the vanilla case). Under
+    `config["runtime"] == "modal"` the container is a Modal Sandbox instead of
+    a local Docker container; the class is a subclass of the Docker one and
+    inherits the submit/abstain marker protocol unchanged.
     """
     env_cfg = dict(config.get("environment", {}))
     env_cfg.pop("environment_class", None)  # we instantiate the class directly
     env_cfg["image"] = instance["image_name"]
+
+    runtime = config.get("runtime", "docker")
+    if runtime == "modal":
+        from swebench_pro.modal_runtime import ModalSandboxEnvironmentWithAbstain
+        env_class = ModalSandboxEnvironmentWithAbstain
+    else:
+        env_class = DockerEnvironmentWithAbstain
 
     intv = int(intervention_cfg.get("id", 0))
 
@@ -238,7 +247,7 @@ def _build_environment(
     #   intv 5: vanilla submit + abstain marker (vanilla submit flow, but
     #           the model can also call exit_abstain)
     #   intv 1/2/3/4: intervention markers only (vanilla marker is ignored)
-    env = DockerEnvironmentWithAbstain(
+    env = env_class(
         use_intervention_markers=(intv not in (0, 5)),
         recognize_abstain_marker=(intv == 5),
         reuse_container_id=reuse_container_id,
@@ -271,10 +280,19 @@ def _build_environment(
     return env
 
 
-def _container_alive(container_id: str | None) -> bool:
-    """Return True iff `container_id` names a currently-running container."""
+def _container_alive(container_id: str | None, runtime: str = "docker") -> bool:
+    """Return True iff `container_id` names a currently-running container.
+
+    Under `--runtime modal` the id is a Modal Sandbox id rather than a Docker
+    container id, so the liveness check goes through the Modal API instead of
+    `docker ps`. Both answer the same question for the resume path: can we
+    reattach to this instance's environment, or must it start fresh?
+    """
     if not container_id:
         return False
+    if runtime == "modal":
+        from swebench_pro.modal_runtime import sandbox_is_alive
+        return sandbox_is_alive(container_id)
     try:
         res = subprocess.run(
             ["docker", "ps", "-q", "--filter", f"id={container_id}"],
@@ -283,6 +301,29 @@ def _container_alive(container_id: str | None) -> bool:
     except Exception:
         return False
     return bool(res.stdout.strip())
+
+
+def _long_path(p: Path) -> Path:
+    """On Windows, return `p` in extended-length (`\\\\?\\`) form; elsewhere `p`.
+
+    SWE-Bench Pro instance ids run to ~135 characters, and the trajectory lives
+    at `<output>/<instance_id>/<instance_id>.traj.json` — so the id appears
+    twice and the full path lands around 310 characters, past Windows' 260-char
+    MAX_PATH. Without this, every instance dies with
+    `FileNotFoundError: ... .traj.json` *after* the agent has finished its work
+    and the API calls have been paid for.
+
+    The `\\\\?\\` prefix opts a path out of MAX_PATH without needing the
+    system-wide LongPathsEnabled registry setting (which requires admin). It
+    demands a fully-qualified, normalized path, hence the `resolve()`. No-op on
+    POSIX, where long paths were never a problem.
+    """
+    if os.name != "nt":
+        return p
+    resolved = p.resolve()
+    if str(resolved).startswith("\\\\?\\"):
+        return resolved
+    return Path("\\\\?\\" + str(resolved))
 
 
 def _read_partial_trajectory(traj_path: Path) -> dict | None:
@@ -320,7 +361,7 @@ def _archive_partial(traj_path: Path) -> Path | None:
 
 def process_instance(instance, model_name, config, output_path, progress_manager):
     instance_id = instance["instance_id"]
-    instance_dir = output_path / instance_id
+    instance_dir = _long_path(output_path / instance_id)
     instance_dir.mkdir(exist_ok=True, parents=True)
     traj_path = instance_dir / f"{instance_id}.traj.json"
 
@@ -334,7 +375,7 @@ def process_instance(instance, model_name, config, output_path, progress_manager
     if partial is not None:
         cid = (((partial.get("info") or {}).get("runtime") or {})
                .get("container_id"))
-        if _container_alive(cid):
+        if _container_alive(cid, config.get("runtime", "docker")):
             resume_cid = cid
             logger.info(
                 f"[{instance_id}] resuming from partial trajectory "
@@ -519,6 +560,14 @@ def main():
                          "Anthropic; extra_body.enable_thinking for Qwen). "
                          "Default 'medium' to match aysm-ca's working setup. "
                          "Pass 'none' to disable.")
+    ap.add_argument("--runtime", choices=["docker", "modal"], default="docker",
+                    help="Where each instance's container runs. 'docker' (default) "
+                         "uses local Docker, unchanged. 'modal' runs each instance in "
+                         "a Modal Sandbox instead — the driver, agent loop and "
+                         "trajectories still run locally, only the containers move. "
+                         "Needs `pip install modal` and `modal setup`. Sandboxes are "
+                         "created inside one App so "
+                         "`swebench_pro/scripts/modal_teardown.py` can kill strays.")
     ap.add_argument("--enable-thinking", action="store_true",
                     help="Enable chat-template 'thinking mode' by sending "
                          "extra_body.chat_template_kwargs.enable_thinking=true. "
@@ -536,6 +585,13 @@ def main():
 
     import yaml
     config = yaml.safe_load(open(args.config))
+
+    # Read back out by _build_environment (which class to instantiate) and by
+    # the resume path (how to check container liveness). A top-level key is
+    # safe: only config["model"], ["agent"] and ["environment"] are forwarded
+    # into mini-swe-agent.
+    config["runtime"] = args.runtime
+    logger.info(f"Container runtime: {args.runtime}")
 
     # ---- Inject per-request litellm timeout + reasoning effort ----------
     # Goes into model_kwargs which mini's LitellmModel splats straight

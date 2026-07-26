@@ -121,7 +121,7 @@ async def run_inference(args):
 
     # --- Few-shot preamble (base models) ---
     fewshot_preamble: str | None = None
-    stop_sequences: list[str] | None = None
+    stop_sequences: list[str] | None = args.stop or None
     if args.fewshot_variant:
         if args.fewshot_variant not in fewshot.VARIANTS:
             raise ValueError(
@@ -143,6 +143,8 @@ async def run_inference(args):
         provider_kwargs["base_model"] = True
     if args.provider == "vllm" and args.base_model_timeout is not None:
         provider_kwargs["base_model_timeout"] = args.base_model_timeout
+    if args.base_url:
+        provider_kwargs["base_url"] = args.base_url
     if args.openrouter_provider:
         provider_kwargs["openrouter_provider"] = args.openrouter_provider
     provider = get_provider(args.provider, **provider_kwargs)
@@ -168,7 +170,14 @@ async def run_inference(args):
             user_msg = problem
         try:
             async with sem:
-                response = await provider.generate(
+                # generate_with_meta (not generate) so `finish_reason` reaches
+                # the saved record. evaluation/math_eval_cautious.py needs it to
+                # tell a response truncated by the token budget ("indeterminate")
+                # from a deliberate abstention; without it every non-boxing
+                # response is scored as an abstention, which is precisely the
+                # bias Reviewer 27Kr flagged. Every provider implements this
+                # (the base class falls back to generate() + null metadata).
+                meta = await provider.generate_with_meta(
                     system_prompt=system_prompt,
                     user_prompt=user_msg,
                     model=args.model,
@@ -185,8 +194,15 @@ async def run_inference(args):
             print(f"[FAIL idx={item.get('idx')}] {type(e).__name__}: {e}")
             return None
         result = dict(item)
-        result["model_generation"] = response or ""
+        result["model_generation"] = meta.get("text") or ""
         result["prompt_mode"] = args.prompt
+        result["finish_reason"] = meta.get("finish_reason")
+        result["completion_tokens"] = meta.get("completion_tokens")
+        result["prompt_tokens"] = meta.get("prompt_tokens")
+        if meta.get("upstream_provider"):
+            # OpenRouter only; records which upstream actually served the
+            # request when provider routing is left unpinned.
+            result["upstream_provider"] = meta["upstream_provider"]
         async with write_lock:
             with open(args.save_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(result, ensure_ascii=False) + "\n")
@@ -222,6 +238,14 @@ def parse_args():
                              "instead of silently being routed elsewhere.")
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
     parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
+    parser.add_argument("--base_url", type=str, default=None,
+                        help="Override the provider's API base URL. Needed to point the vllm "
+                             "provider at a remote server (e.g. a Modal endpoint) instead of "
+                             "the default http://localhost:8000/v1")
+    parser.add_argument("--stop", type=str, action="append", default=None, metavar="SEQ",
+                        help="Stop sequence; repeat for several. Without one, a raw "
+                             "/v1/completions call on a base model runs to --max_tokens. "
+                             "Ignored when --fewshot_variant is set (that mode supplies its own).")
     parser.add_argument("--base_model_timeout", type=float, default=60.0,
                         help="Per-request timeout (seconds) for base-model autocomplete calls (default: 60). Has no effect on chat-completions calls.")
     parser.add_argument("--fewshot_variant", type=str, default=None, choices=fewshot.VARIANTS,

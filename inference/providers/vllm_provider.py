@@ -51,13 +51,20 @@ class VLLMProvider(Provider):
 
     @staticmethod
     def _build_raw_prompt(system_prompt: str, user_prompt: str) -> str:
-        print(f"{system_prompt}\n\n{user_prompt}")
         if system_prompt:
             return f"{system_prompt}\n\n{user_prompt}"
         return user_prompt
 
-    async def _completions(self, prompt: str, *, model, temperature, max_tokens, stop=None) -> str:
-        """Call the legacy /v1/completions endpoint (no chat template)."""
+    async def _completions_meta(self, prompt: str, *, model, temperature, max_tokens, stop=None) -> dict:
+        """Call the legacy /v1/completions endpoint (no chat template).
+
+        Returns text *and* metadata. `finish_reason == "length"` is what lets
+        the evaluator distinguish a response truncated by the token budget from
+        a deliberate abstention — the distinction Reviewer 27Kr raised, and one
+        that matters most on exactly this path, since base models are both the
+        least reliable at emitting a final answer and the most likely to ramble
+        into the token cap.
+        """
         kwargs = {}
         if stop:
             kwargs["stop"] = stop
@@ -69,9 +76,17 @@ class VLLMProvider(Provider):
             max_tokens=max_tokens,
             **kwargs,
         )
-        return response.choices[0].text or ""
+        choice = response.choices[0]
+        usage = getattr(response, "usage", None)
+        return {
+            "text": choice.text or "",
+            "completion_tokens": getattr(usage, "completion_tokens", None),
+            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+            "finish_reason": getattr(choice, "finish_reason", None),
+        }
 
-    async def _chat(self, system_prompt, user_prompt, *, model, temperature, max_tokens, stop=None) -> str:
+    async def _chat_meta(self, system_prompt, user_prompt, *, model, temperature, max_tokens, stop=None) -> dict:
+        """Call /v1/chat/completions. Returns text plus metadata."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -87,17 +102,24 @@ class VLLMProvider(Provider):
             max_completion_tokens=max_tokens,
             **kwargs,
         )
-        choice = response.choices[0].message
-        content = choice.content or ""
+        choice = response.choices[0]
+        msg = choice.message
+        text = msg.content or ""
         # Qwen3.5 with --reasoning-parser qwen3: thinking tokens are returned
         # in reasoning_content, stripped from content. Prepend them so the
         # full trace is stored and the grader still sees the final \boxed{}.
-        reasoning = getattr(choice, "reasoning_content", None) or getattr(choice, "reasoning", None)
+        reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
         if reasoning:
-            return f"<think>\n{reasoning}\n</think>\n{content}"
-        return content
+            text = f"<think>\n{reasoning}\n</think>\n{text}"
+        usage = getattr(response, "usage", None)
+        return {
+            "text": text,
+            "completion_tokens": getattr(usage, "completion_tokens", None) if usage else None,
+            "prompt_tokens": getattr(usage, "prompt_tokens", None) if usage else None,
+            "finish_reason": getattr(choice, "finish_reason", None),
+        }
 
-    async def generate(
+    async def generate_with_meta(
         self,
         system_prompt: str,
         user_prompt: str,
@@ -107,7 +129,14 @@ class VLLMProvider(Provider):
         max_completion_tokens: int = 32768,
         stop: list[str] | None = None,
         **kwargs,
-    ) -> str:
+    ) -> dict:
+        """The single request path for this provider.
+
+        Handles both endpoints, the base-model auto-detect fallback, and all
+        retries. `generate()` is a thin wrapper over this, so the two can't
+        drift — previously the base-model branch here skipped retries entirely
+        and returned null metadata.
+        """
         is_base = self._force_base_model or self._base_model.get(model, False)
         max_retries = 6           # for transient 5xx / rate-limits
         max_timeout_retries = 3   # for per-request timeouts / connection drops
@@ -117,13 +146,15 @@ class VLLMProvider(Provider):
         while True:
             try:
                 if is_base:
-                    return await self._completions(
+                    return await self._completions_meta(
                         self._build_raw_prompt(system_prompt, user_prompt),
-                        model=model, temperature=temperature, max_tokens=max_completion_tokens, stop=stop,
+                        model=model, temperature=temperature,
+                        max_tokens=max_completion_tokens, stop=stop,
                     )
-                return await self._chat(
+                return await self._chat_meta(
                     system_prompt, user_prompt,
-                    model=model, temperature=temperature, max_tokens=max_completion_tokens, stop=stop,
+                    model=model, temperature=temperature,
+                    max_tokens=max_completion_tokens, stop=stop,
                 )
             except openai.BadRequestError as e:
                 if not is_base and self._is_chat_template_error(e):
@@ -148,13 +179,7 @@ class VLLMProvider(Provider):
                 print(f"[retry {attempt}/{max_retries}] {e} — waiting {wait}s")
                 await asyncio.sleep(wait)
 
-    # ----- generate_with_meta (used by intervention runner) -----
-    # Intervention runs are intended for hosted instruct models, not local
-    # base models, so we only implement the chat-completions path here. If
-    # someone calls this against a base-model vLLM, fall back to wrapping
-    # generate() (no metadata).
-
-    async def generate_with_meta(
+    async def generate(
         self,
         system_prompt: str,
         user_prompt: str,
@@ -164,61 +189,10 @@ class VLLMProvider(Provider):
         max_completion_tokens: int = 32768,
         stop: list[str] | None = None,
         **kwargs,
-    ) -> dict:
-        is_base = self._force_base_model or self._base_model.get(model, False)
-        if is_base:
-            text = await self.generate(
-                system_prompt, user_prompt,
-                model=model, temperature=temperature,
-                max_completion_tokens=max_completion_tokens, stop=stop,
-            )
-            return {"text": text, "completion_tokens": None, "prompt_tokens": None, "finish_reason": None}
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-        request_kwargs = {}
-        if stop:
-            request_kwargs["stop"] = stop
-        client = self._client_for(is_base=False)
-        max_retries = 6
-        max_timeout_retries = 3
-        attempt = 0
-        timeout_attempt = 0
-        while True:
-            try:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_completion_tokens=max_completion_tokens,
-                    **request_kwargs,
-                )
-                choice = response.choices[0]
-                msg = choice.message
-                text = msg.content or ""
-                reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
-                if reasoning:
-                    text = f"<think>\n{reasoning}\n</think>\n{text}"
-                usage = getattr(response, "usage", None)
-                return {
-                    "text": text,
-                    "completion_tokens": getattr(usage, "completion_tokens", None) if usage else None,
-                    "prompt_tokens": getattr(usage, "prompt_tokens", None) if usage else None,
-                    "finish_reason": getattr(choice, "finish_reason", None),
-                }
-            except (openai.APITimeoutError, openai.APIConnectionError) as e:
-                timeout_attempt += 1
-                if timeout_attempt >= max_timeout_retries:
-                    raise
-                print(f"[timeout {timeout_attempt}/{max_timeout_retries}] {type(e).__name__}: {e}")
-            except (openai.RateLimitError, openai.APIStatusError) as e:
-                if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
-                    raise
-                attempt += 1
-                if attempt >= max_retries:
-                    raise
-                wait = 2 ** attempt
-                print(f"[retry {attempt}/{max_retries}] {e} — waiting {wait}s")
-                await asyncio.sleep(wait)
+    ) -> str:
+        meta = await self.generate_with_meta(
+            system_prompt, user_prompt,
+            model=model, temperature=temperature,
+            max_completion_tokens=max_completion_tokens, stop=stop, **kwargs,
+        )
+        return meta["text"]

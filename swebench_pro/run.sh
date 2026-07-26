@@ -49,6 +49,16 @@
 #   --rc / --ri / --ra              quantitative rubric values (correct,
 #                                   incorrect, abstain).
 #
+# Container runtime:
+#   --runtime {docker,modal}        docker (default) = local Docker, unchanged.
+#                                   modal = each instance runs in a Modal
+#                                   Sandbox and the official grader runs on
+#                                   Modal too; the driver, agent loop and
+#                                   trajectories stay local. Needs
+#                                   `pip install modal` + `modal setup`.
+#                                   Kill strays with
+#                                   swebench_pro/scripts/modal_teardown.py.
+#
 # Env-var defaults (CLI flag wins): MODEL, CONFIG, INSTANCES, N, SEED,
 # WORKERS, EVAL_WORKERS, OUTPUT, DOCKERHUB_USERNAME, INTERVENTION,
 # PROMPT_CONFIG, RC, RI, RA
@@ -106,6 +116,7 @@ RI="${RI:-}"
 RA="${RA:-}"
 API_TIMEOUT="${API_TIMEOUT:-600}"
 REASONING_EFFORT="${REASONING_EFFORT:-medium}"
+RUNTIME="${RUNTIME:-docker}"   # docker | modal — where instance containers run
 ENABLE_THINKING="${ENABLE_THINKING:-0}"   # 1 -> pass --enable-thinking through
 
 # ---- local vLLM self-serve -------------------------------------------------
@@ -156,6 +167,7 @@ while [ $# -gt 0 ]; do
         --ra|--rubric-abstain)   RA="$2"; shift 2 ;;
         --api-timeout)           API_TIMEOUT="$2"; shift 2 ;;
         --reasoning-effort)      REASONING_EFFORT="$2"; shift 2 ;;
+        --runtime)               RUNTIME="$2"; shift 2 ;;
         --enable-thinking)    ENABLE_THINKING=1; shift ;;
         --no-thinking)        ENABLE_THINKING=0; shift ;;
         --lora-adapter)       LORA_ADAPTER="$2"; shift 2 ;;
@@ -405,6 +417,7 @@ if [ "$DO_INFER" -eq 1 ]; then
     if [ "$N" -gt 0 ]; then
         EXTRA+=(--limit "$N")
     fi
+    EXTRA+=(--runtime "$RUNTIME")
     EXTRA+=(--intervention "$INTERVENTION" --prompt-config "$PROMPT_CONFIG")
     if [ "$ENABLE_THINKING" -eq 1 ]; then
         EXTRA+=(--enable-thinking)
@@ -433,6 +446,12 @@ fi
 # 2. Evaluation.
 if [ "$DO_EVAL" -eq 1 ] || [ "$GOLD_EVAL" -eq 1 ]; then
     EVAL_FLAGS=(--workers "$EVAL_WORKERS" --dockerhub-username "$DOCKERHUB_USERNAME")
+    # Keep the grader on the same backend as inference: running the agent in
+    # Modal but grading in local Docker would still pull every multi-GB test
+    # image onto this machine, which is the thing Modal is here to avoid.
+    if [ "$RUNTIME" = "modal" ]; then
+        EVAL_FLAGS+=(--modal)
+    fi
     if [ "$GOLD_EVAL" -eq 1 ]; then
         EVAL_FLAGS+=(--gold)
     fi
