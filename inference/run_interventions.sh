@@ -26,6 +26,13 @@
 #   --temperature / TEMPERATURE   default 0.0
 #   --max-tokens  / MAX_TOKENS    default 32768
 #   --concurrency / CONCURRENCY   default 20
+#   --reasoning-effort / REASONING_EFFORT   default ""  (omit field; OpenAI
+#                                           falls back to the model default,
+#                                           which is "medium" for GPT-5 family).
+#                                           Pass "medium" (or another tier) to
+#                                           pin the value explicitly. Choices:
+#                                           "" / minimal / low / medium / high.
+#                                           Honored by the OpenAI provider only.
 #   --results-dir / RESULTS_DIR   default inference/results/interventions
 #   --eval-dir    / EVAL_DIR      default evaluation/output/interventions
 # Filters (CLI only; absent = run everything):
@@ -51,6 +58,7 @@ SEED="${SEED:-100}"
 TEMPERATURE="${TEMPERATURE:-1.0}"
 MAX_TOKENS="${MAX_TOKENS:-64000}"
 CONCURRENCY="${CONCURRENCY:-20}"
+REASONING_EFFORT="${REASONING_EFFORT:-}"
 RESULTS_DIR="${RESULTS_DIR:-inference/results/interventions}"
 EVAL_DIR="${EVAL_DIR:-evaluation/output/interventions}"
 
@@ -74,6 +82,7 @@ while [ $# -gt 0 ]; do
         --temperature)   TEMPERATURE="$2"; shift 2 ;;
         --max-tokens)    MAX_TOKENS="$2"; shift 2 ;;
         --concurrency)   CONCURRENCY="$2"; shift 2 ;;
+        --reasoning-effort) REASONING_EFFORT="$2"; shift 2 ;;
         --results-dir)   RESULTS_DIR="$2"; shift 2 ;;
         --eval-dir)      EVAL_DIR="$2"; shift 2 ;;
         -h|--help)       usage ;;
@@ -145,6 +154,7 @@ fi
 echo "Sweep config:"
 echo "  num_samples=$NUM_SAMPLES seed=$SEED temperature=$TEMPERATURE"
 echo "  max_tokens=$MAX_TOKENS concurrency=$CONCURRENCY"
+echo "  reasoning_effort='${REASONING_EFFORT:-(omit; server default)}'"
 echo "  filters: model='${ONLY_MODEL:-(all)}' config='${ONLY_CONFIG:-(all)}' intervention='${ONLY_INTERVENTION:-(all)}'"
 echo "  results_dir=$RESULTS_DIR  eval_dir=$EVAL_DIR"
 
@@ -154,6 +164,9 @@ run_one_inference () {
     local extra_args=()
     if [ -n "$or_subprovider" ]; then
         extra_args+=(--openrouter-provider "$or_subprovider")
+    fi
+    if [ -n "$REASONING_EFFORT" ]; then
+        extra_args+=(--reasoning-effort "$REASONING_EFFORT")
     fi
     echo
     echo "=== ${slug} | int${interv} | ${cfg}${or_subprovider:+ | OR-provider=$or_subprovider} ==="

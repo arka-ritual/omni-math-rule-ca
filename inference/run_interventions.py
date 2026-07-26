@@ -117,12 +117,13 @@ def select_subset(dataset: list[dict], num_samples: int, seed: int, start: int) 
 
 # ----------------------- per-intervention runners -----------------------
 
-async def run_intervention1(provider, model, item, cfg, *, max_tokens, temperature):
+async def run_intervention1(provider, model, item, cfg, *, max_tokens, temperature, reasoning_effort=None):
     problem = item.get("problem") or item.get("question", "")
     system, user = build_intervention1(cfg, problem)
     meta = await provider.generate_with_meta(
         system_prompt=system, user_prompt=user,
         model=model, temperature=temperature, max_completion_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
     return {
         "model_generation": meta["text"],
@@ -132,7 +133,7 @@ async def run_intervention1(provider, model, item, cfg, *, max_tokens, temperatu
     }
 
 
-async def run_intervention2(provider, model, item, cfg, *, max_tokens, temperature):
+async def run_intervention2(provider, model, item, cfg, *, max_tokens, temperature, reasoning_effort=None):
     """Three sequential calls: solve → confidence → decision."""
     problem = item.get("problem") or item.get("question", "")
 
@@ -140,6 +141,7 @@ async def run_intervention2(provider, model, item, cfg, *, max_tokens, temperatu
     t1 = await provider.generate_with_meta(
         system_prompt=sys1, user_prompt=usr1,
         model=model, temperature=temperature, max_completion_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
     predicted = extract_last_boxed(t1["text"]) or "[NO ANSWER PARSED]"
 
@@ -147,6 +149,7 @@ async def run_intervention2(provider, model, item, cfg, *, max_tokens, temperatu
     t2 = await provider.generate_with_meta(
         system_prompt=sys2, user_prompt=usr2,
         model=model, temperature=temperature, max_completion_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
     confidence = parse_confidence_line(t2["text"]) or "[unparsed]"
 
@@ -154,6 +157,7 @@ async def run_intervention2(provider, model, item, cfg, *, max_tokens, temperatu
     t3 = await provider.generate_with_meta(
         system_prompt=sys3, user_prompt=usr3,
         model=model, temperature=temperature, max_completion_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
 
     return _aggregate_turns(
@@ -167,7 +171,7 @@ async def run_intervention2(provider, model, item, cfg, *, max_tokens, temperatu
     )
 
 
-async def run_intervention3(provider, model, item, cfg, *, max_tokens, temperature):
+async def run_intervention3(provider, model, item, cfg, *, max_tokens, temperature, reasoning_effort=None):
     """Two sequential calls: solve → decision (no confidence step)."""
     problem = item.get("problem") or item.get("question", "")
 
@@ -175,6 +179,7 @@ async def run_intervention3(provider, model, item, cfg, *, max_tokens, temperatu
     t1 = await provider.generate_with_meta(
         system_prompt=sys1, user_prompt=usr1,
         model=model, temperature=temperature, max_completion_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
     predicted = extract_last_boxed(t1["text"]) or "[NO ANSWER PARSED]"
 
@@ -182,6 +187,7 @@ async def run_intervention3(provider, model, item, cfg, *, max_tokens, temperatu
     t2 = await provider.generate_with_meta(
         system_prompt=sys2, user_prompt=usr2,
         model=model, temperature=temperature, max_completion_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
 
     return _aggregate_turns(
@@ -312,6 +318,7 @@ async def run(args):
                 result = await fn(
                     provider, args.model, item, cfg,
                     max_tokens=args.max_tokens, temperature=args.temperature,
+                    reasoning_effort=args.reasoning_effort,
                 )
         except Exception as e:
             failed += 1
@@ -349,6 +356,16 @@ def parse_args():
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--max_tokens", type=int, default=32768)
     p.add_argument("--concurrency", type=int, default=20)
+    p.add_argument("--reasoning_effort", "--reasoning-effort",
+                   dest="reasoning_effort", default=None,
+                   choices=[None, "minimal", "low", "medium", "high"],
+                   help="Explicit reasoning_effort to send to OpenAI. "
+                        "Default None = omit the field, which makes the API "
+                        "fall back to the model default (medium for the "
+                        "GPT-5 family). To pin a value (e.g. for "
+                        "reproducibility) pass it explicitly. 'minimal' is "
+                        "GPT-5-only. Currently honored by the OpenAI "
+                        "provider; ignored by other providers.")
     p.add_argument("--api_key", default=None)
     p.add_argument("--openrouter-provider", "--openrouter_provider",
                    dest="openrouter_provider", default=None,

@@ -175,6 +175,7 @@ async def run_inference(args):
                     temperature=args.temperature,
                     max_completion_tokens=args.max_tokens,
                     stop=stop_sequences,
+                    reasoning_effort=args.reasoning_effort,
                 )
         except Exception as e:
             # Per-item failure isolation: log and skip so one bad request
@@ -221,6 +222,16 @@ def parse_args():
                              "request fails loudly if that upstream isn't available "
                              "instead of silently being routed elsewhere.")
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
+    parser.add_argument("--reasoning-effort", "--reasoning_effort",
+                        dest="reasoning_effort", default=None,
+                        choices=[None, "minimal", "low", "medium", "high"],
+                        help="Explicit reasoning_effort to send to OpenAI. "
+                             "Default None = omit the field, which makes the "
+                             "API fall back to the model default (medium for "
+                             "the GPT-5 family). To pin a value (e.g. for "
+                             "reproducibility) pass it explicitly. 'minimal' "
+                             "is GPT-5-only. Currently honored by the OpenAI "
+                             "provider; ignored by other providers.")
     parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
     parser.add_argument("--base_model_timeout", type=float, default=60.0,
                         help="Per-request timeout (seconds) for base-model autocomplete calls (default: 60). Has no effect on chat-completions calls.")

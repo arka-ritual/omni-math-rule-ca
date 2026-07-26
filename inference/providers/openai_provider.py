@@ -31,6 +31,7 @@ class OpenAIProvider(Provider):
         model: str = "gpt-5.2",
         temperature: float = 0,
         max_completion_tokens: int = 32768,
+        reasoning_effort: str | None = None,
         **kwargs,
     ) -> str:
         if model in RESPONSES_API_MODELS:
@@ -38,21 +39,25 @@ class OpenAIProvider(Provider):
                 system_prompt, user_prompt,
                 model=model, temperature=temperature,
                 max_completion_tokens=max_completion_tokens,
+                reasoning_effort=reasoning_effort,
             )
         return await self._generate_chat(
             system_prompt, user_prompt,
             model=model, temperature=temperature,
             max_completion_tokens=max_completion_tokens,
+            reasoning_effort=reasoning_effort,
         )
 
     async def _generate_chat(
         self, system_prompt, user_prompt, *, model, temperature, max_completion_tokens,
+        reasoning_effort: str | None = None,
     ) -> str:
         """Chat Completions API (gpt-5.2, gpt-4o, etc.)."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+        extra = _chat_reasoning_kwargs(reasoning_effort)
         max_retries = 6
         for attempt in range(max_retries):
             try:
@@ -61,6 +66,7 @@ class OpenAIProvider(Provider):
                     messages=messages,
                     temperature=temperature,
                     max_completion_tokens=max_completion_tokens,
+                    **extra,
                 )
                 return response.choices[0].message.content
             except (openai.RateLimitError, openai.APIStatusError) as e:
@@ -75,13 +81,16 @@ class OpenAIProvider(Provider):
             messages=messages,
             temperature=temperature,
             max_completion_tokens=max_completion_tokens,
+            **extra,
         )
         return response.choices[0].message.content
 
     async def _generate_responses(
         self, system_prompt, user_prompt, *, model, temperature, max_completion_tokens,
+        reasoning_effort: str | None = None,
     ) -> str:
         """Responses API (gpt-5.2-pro, etc.)."""
+        extra = _responses_reasoning_kwargs(reasoning_effort)
         max_retries = 6
         for attempt in range(max_retries):
             try:
@@ -90,6 +99,7 @@ class OpenAIProvider(Provider):
                     instructions=system_prompt,
                     input=user_prompt,
                     max_output_tokens=max_completion_tokens,
+                    **extra,
                 )
                 return response.output_text
             except (openai.RateLimitError, openai.APIStatusError) as e:
@@ -104,6 +114,7 @@ class OpenAIProvider(Provider):
             instructions=system_prompt,
             input=user_prompt,
             max_output_tokens=max_completion_tokens,
+            **extra,
         )
         return response.output_text
 
@@ -117,6 +128,7 @@ class OpenAIProvider(Provider):
         model: str = "gpt-5.2",
         temperature: float = 0,
         max_completion_tokens: int = 32768,
+        reasoning_effort: str | None = None,
         **kwargs,
     ) -> dict:
         if model in RESPONSES_API_MODELS:
@@ -124,20 +136,24 @@ class OpenAIProvider(Provider):
                 system_prompt, user_prompt,
                 model=model, temperature=temperature,
                 max_completion_tokens=max_completion_tokens,
+                reasoning_effort=reasoning_effort,
             )
         return await self._generate_chat_with_meta(
             system_prompt, user_prompt,
             model=model, temperature=temperature,
             max_completion_tokens=max_completion_tokens,
+            reasoning_effort=reasoning_effort,
         )
 
     async def _generate_chat_with_meta(
         self, system_prompt, user_prompt, *, model, temperature, max_completion_tokens,
+        reasoning_effort: str | None = None,
     ) -> dict:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+        extra = _chat_reasoning_kwargs(reasoning_effort)
         max_retries = 6
         for attempt in range(max_retries):
             try:
@@ -146,6 +162,7 @@ class OpenAIProvider(Provider):
                     messages=messages,
                     temperature=temperature,
                     max_completion_tokens=max_completion_tokens,
+                    **extra,
                 )
                 return _chat_response_to_meta(response)
             except (openai.RateLimitError, openai.APIStatusError) as e:
@@ -159,12 +176,15 @@ class OpenAIProvider(Provider):
             messages=messages,
             temperature=temperature,
             max_completion_tokens=max_completion_tokens,
+            **extra,
         )
         return _chat_response_to_meta(response)
 
     async def _generate_responses_with_meta(
         self, system_prompt, user_prompt, *, model, temperature, max_completion_tokens,
+        reasoning_effort: str | None = None,
     ) -> dict:
+        extra = _responses_reasoning_kwargs(reasoning_effort)
         max_retries = 6
         for attempt in range(max_retries):
             try:
@@ -173,6 +193,7 @@ class OpenAIProvider(Provider):
                     instructions=system_prompt,
                     input=user_prompt,
                     max_output_tokens=max_completion_tokens,
+                    **extra,
                 )
                 return _responses_to_meta(response)
             except (openai.RateLimitError, openai.APIStatusError) as e:
@@ -186,8 +207,32 @@ class OpenAIProvider(Provider):
             instructions=system_prompt,
             input=user_prompt,
             max_output_tokens=max_completion_tokens,
+            **extra,
         )
         return _responses_to_meta(response)
+
+
+def _chat_reasoning_kwargs(reasoning_effort: str | None) -> dict:
+    """Build the chat.completions.create kwargs for a given reasoning effort.
+
+    Passing the empty dict is the way to omit the field (server picks the
+    model default — which for the gpt-5 family is 'medium' rather than
+    'off'). Pass an explicit string to set it.
+    """
+    if not reasoning_effort:
+        return {}
+    return {"reasoning_effort": reasoning_effort}
+
+
+def _responses_reasoning_kwargs(reasoning_effort: str | None) -> dict:
+    """Build the responses.create kwargs for a given reasoning effort.
+
+    The Responses API uses the nested `reasoning={"effort": ...}` shape
+    rather than the flat `reasoning_effort=...` of Chat Completions.
+    """
+    if not reasoning_effort:
+        return {}
+    return {"reasoning": {"effort": reasoning_effort}}
 
 
 def _chat_response_to_meta(response) -> dict:
