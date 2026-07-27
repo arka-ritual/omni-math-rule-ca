@@ -73,8 +73,9 @@ _REASONING_TRIGGER_RE = re.compile(
     re.IGNORECASE,
 )
 _REFUSAL_RE = re.compile(
-    r"\b(?:cannot|can't|unable\s+to|won't|will\s+not|decline|refuse)\b"
-    r".{0,100}\b(?:answer|comply|provide|assist)\b",
+    r"\b(?:i|we)\s+(?:cannot|can't|am\s+unable\s+to|are\s+unable\s+to|"
+    r"won't|will\s+not|decline\s+to|refuse\s+to)\b"
+    r".{0,100}\b(?:answer|comply|provide|assist|complete)\b",
     re.IGNORECASE | re.DOTALL,
 )
 

@@ -1,0 +1,11 @@
+model,model_slug,qp,boxing_rate_delta_pp,explicit_abstention_delta_pp,as_prompted_abstention_delta_pp,selective_accuracy_delta_pp
+Claude Haiku 4.5,claude-haiku-4-5,QP6,-1.0,3.0,3.0,5.9
+Claude Haiku 4.5,claude-haiku-4-5,QP7,1.0,-1.0,-2.0,-3.3
+DeepSeek V4 Pro,deepseek-v4-pro,QP6,2.0,2.0,2.0,-1.0
+DeepSeek V4 Pro,deepseek-v4-pro,QP7,2.0,0.0,0.0,-4.1
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP6,0.0,10.0,10.0,-36.9
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP7,0.0,1.0,1.0,-41.2
+GPT-5.4 Nano,gpt-5.4-nano,QP6,0.0,7.0,7.0,-24.3
+GPT-5.4 Nano,gpt-5.4-nano,QP7,1.0,7.0,6.0,-27.9
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP6,-1.0,3.0,2.0,8.0
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP7,5.0,0.0,-8.0,1.6

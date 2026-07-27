@@ -69,6 +69,18 @@ class CotAblationAnalysisTest(unittest.TestCase):
             visible_reasoning_candidate("The answer is \\boxed{5}.", ["5"])
         )
 
+    def test_refusal_screen_does_not_match_mathematical_cannot(self):
+        refusal = protocol_outcome(
+            item("The bound cannot be smaller, so we provide \\boxed{5}."),
+            "no_cot",
+        )
+        actual_refusal = protocol_outcome(
+            item("I cannot complete this problem without the answer choices."),
+            "no_cot",
+        )
+        self.assertFalse(refusal["refusal_candidate"])
+        self.assertTrue(actual_refusal["refusal_candidate"])
+
     def test_incomplete_no_box_is_indeterminate(self):
         result = protocol_outcome(
             item("<think>unfinished</think>", finish_reason="length"), "no_cot"

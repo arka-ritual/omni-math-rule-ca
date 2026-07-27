@@ -1,0 +1,21 @@
+model,model_slug,qp,condition,total,boxed,boxing_rate,explicit_abstained,explicit_abstention_rate,as_prompted_abstained,as_prompted_abstention_rate,no_box,mixed_box,indeterminate,answered,correct,selective_accuracy,provider_reasoning,visible_reasoning,visible_direct_rate,refusals
+Claude Haiku 4.5,claude-haiku-4-5,QP6,cot,100,100,100.0,2,2.0,2,2.0,0,0,0,98,61,62.2,0,,,
+Claude Haiku 4.5,claude-haiku-4-5,QP6,no_cot,100,99,99.0,5,5.0,5,5.0,1,1,0,94,64,68.1,0,100,0.0,1
+Claude Haiku 4.5,claude-haiku-4-5,QP7,cot,100,99,99.0,1,1.0,2,2.0,1,0,0,98,64,65.3,0,,,
+Claude Haiku 4.5,claude-haiku-4-5,QP7,no_cot,100,100,100.0,0,0.0,0,0.0,0,0,0,100,62,62.0,0,100,0.0,0
+DeepSeek V4 Pro,deepseek-v4-pro,QP6,cot,100,95,95.0,2,2.0,2,2.0,5,0,5,93,87,93.5,100,,,
+DeepSeek V4 Pro,deepseek-v4-pro,QP6,no_cot,100,97,97.0,4,4.0,4,4.0,3,0,3,93,86,92.5,100,8,92.0,0
+DeepSeek V4 Pro,deepseek-v4-pro,QP7,cot,100,95,95.0,2,2.0,2,2.0,5,0,5,93,88,94.6,100,,,
+DeepSeek V4 Pro,deepseek-v4-pro,QP7,no_cot,100,97,97.0,2,2.0,2,2.0,3,0,3,95,86,90.5,100,11,89.0,0
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP6,cot,100,100,100.0,0,0.0,0,0.0,0,0,0,100,58,58.0,0,,,
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP6,no_cot,100,100,100.0,10,10.0,10,10.0,0,0,0,90,19,21.1,0,1,99.0,0
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP7,cot,100,100,100.0,1,1.0,1,1.0,0,0,0,99,61,61.6,0,,,
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP7,no_cot,100,100,100.0,2,2.0,2,2.0,0,0,0,98,20,20.4,0,1,99.0,0
+GPT-5.4 Nano,gpt-5.4-nano,QP6,cot,100,100,100.0,9,9.0,9,9.0,0,1,0,91,46,50.5,0,,,
+GPT-5.4 Nano,gpt-5.4-nano,QP6,no_cot,100,100,100.0,16,16.0,16,16.0,0,0,0,84,22,26.2,0,94,6.0,0
+GPT-5.4 Nano,gpt-5.4-nano,QP7,cot,100,99,99.0,3,3.0,4,4.0,1,0,0,96,46,47.9,0,,,
+GPT-5.4 Nano,gpt-5.4-nano,QP7,no_cot,100,100,100.0,10,10.0,10,10.0,0,0,0,90,18,20.0,0,89,11.0,0
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP6,cot,100,99,99.0,2,2.0,3,3.0,1,1,0,97,82,84.5,100,,,
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP6,no_cot,100,98,98.0,5,5.0,5,5.0,2,0,0,93,86,92.5,100,81,19.0,0
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP7,cot,100,92,92.0,1,1.0,9,9.0,8,0,0,91,81,89.0,100,,,
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP7,no_cot,100,97,97.0,1,1.0,1,1.0,3,0,0,96,87,90.6,100,83,17.0,0
