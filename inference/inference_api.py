@@ -60,6 +60,34 @@ def load_existing_indices(path: str) -> set[int]:
     return indices
 
 
+def select_dataset(
+    dataset: list[dict],
+    *,
+    num_samples: int,
+    start: int,
+    seed: int,
+) -> list[dict]:
+    """Select a deterministic shuffle-and-slice subset.
+
+    For a fixed seed/start, the N-item selection is always a prefix (as an
+    unordered set) of a larger selection. Sorting the chosen indices keeps
+    output order stable and makes a pilot file safely resumable to N=100.
+    """
+    if num_samples > 0:
+        rng = random.Random(seed)
+        indices = list(range(len(dataset)))
+        if start > 0:
+            indices = indices[start:]
+        rng.shuffle(indices)
+        if num_samples < len(indices):
+            indices = indices[:num_samples]
+        indices.sort()
+        return [dataset[i] for i in indices]
+    if start > 0:
+        return dataset[start:]
+    return dataset
+
+
 async def run_inference(args):
     # --- Load dataset ---
     dataset = load_dataset(args.data_file)
@@ -74,18 +102,12 @@ async def run_inference(args):
     # makes resume work correctly when re-running with a smaller num_samples
     # than the original run. `random.sample(seq, k)` does not have this
     # property — its output for k=N₁ and k=N₂ can have non-trivial differences.
-    if args.num_samples > 0:
-        rng = random.Random(args.seed)
-        indices = list(range(len(dataset)))
-        if args.start > 0:
-            indices = indices[args.start:]
-        rng.shuffle(indices)
-        if args.num_samples < len(indices):
-            indices = indices[: args.num_samples]
-        indices.sort()
-        dataset = [dataset[i] for i in indices]
-    elif args.start > 0:
-        dataset = dataset[args.start:]
+    dataset = select_dataset(
+        dataset,
+        num_samples=args.num_samples,
+        start=args.start,
+        seed=args.seed,
+    )
 
     # --- Resume: skip already-completed items ---
     os.makedirs(os.path.dirname(args.save_path) or ".", exist_ok=True)
@@ -168,11 +190,11 @@ async def run_inference(args):
             user_msg = problem
         try:
             async with sem:
-                response = await provider.generate(
+                meta = await provider.generate_with_meta(
                     system_prompt=system_prompt,
                     user_prompt=user_msg,
                     model=args.model,
-                    temperature=args.temperature,
+                    temperature=None if args.omit_temperature else args.temperature,
                     max_completion_tokens=args.max_tokens,
                     stop=stop_sequences,
                     reasoning_effort=args.reasoning_effort,
@@ -186,8 +208,20 @@ async def run_inference(args):
             print(f"[FAIL idx={item.get('idx')}] {type(e).__name__}: {e}")
             return None
         result = dict(item)
-        result["model_generation"] = response or ""
+        result["model_generation"] = meta.pop("text", "") or ""
+        result.update(meta)
         result["prompt_mode"] = args.prompt
+        result["request_provider"] = args.provider
+        result["request_model"] = args.model
+        result["request_openrouter_provider"] = args.openrouter_provider
+        result["reasoning_effort"] = args.reasoning_effort
+        result["temperature"] = None if args.omit_temperature else args.temperature
+        result["max_completion_tokens"] = args.max_tokens
+        result["dataset_seed"] = args.seed
+        if args.prompt == "quantitative_grading":
+            result["rubric_correct"] = args.rubric_correct
+            result["rubric_incorrect"] = args.rubric_incorrect
+            result["rubric_abstain"] = args.rubric_abstain
         async with write_lock:
             with open(args.save_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(result, ensure_ascii=False) + "\n")
@@ -209,6 +243,8 @@ def parse_args():
     parser.add_argument("--prompt", type=str, default="standard", help="Prompt preset name (default: standard)")
     parser.add_argument("--system-prompt", type=str, default=None, dest="system_prompt", help="Custom system prompt (overrides --prompt)")
     parser.add_argument("--temperature", type=float, default=0, help="Sampling temperature (default: 0)")
+    parser.add_argument("--omit-temperature", action="store_true",
+                        help="Omit temperature from the API request and use the model/provider default.")
     parser.add_argument("--max_tokens", type=int, default=32768, help="Max tokens (default: 32768)")
     parser.add_argument("--concurrency", type=int, default=50, help="Max concurrent API calls (default: 50)")
     parser.add_argument("--num_samples", type=int, default=100, help="Number of problems to sample (0=all, default: 100)")
@@ -218,20 +254,18 @@ def parse_args():
     parser.add_argument("--openrouter-provider", "--openrouter_provider",
                         dest="openrouter_provider", default=None,
                         help="OpenRouter sub-provider to pin via provider routing "
-                             "(e.g. 'DeepSeek'). Sets allow_fallbacks=false, so the "
-                             "request fails loudly if that upstream isn't available "
-                             "instead of silently being routed elsewhere.")
+                             "(e.g. 'openai'). Sets allow_fallbacks=false and "
+                             "require_parameters=true, so the request fails loudly "
+                             "if that upstream cannot honor the request.")
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
     parser.add_argument("--reasoning-effort", "--reasoning_effort",
                         dest="reasoning_effort", default=None,
-                        choices=[None, "minimal", "low", "medium", "high"],
-                        help="Explicit reasoning_effort to send to OpenAI. "
+                        choices=["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+                        help="Explicit reasoning effort to send to the provider. "
                              "Default None = omit the field, which makes the "
                              "API fall back to the model default (medium for "
-                             "the GPT-5 family). To pin a value (e.g. for "
-                             "reproducibility) pass it explicitly. 'minimal' "
-                             "is GPT-5-only. Currently honored by the OpenAI "
-                             "provider; ignored by other providers.")
+                             "GPT-5.6 Sol). To pin a value for reproducibility, "
+                             "pass it explicitly.")
     parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
     parser.add_argument("--base_model_timeout", type=float, default=60.0,
                         help="Per-request timeout (seconds) for base-model autocomplete calls (default: 60). Has no effect on chat-completions calls.")
