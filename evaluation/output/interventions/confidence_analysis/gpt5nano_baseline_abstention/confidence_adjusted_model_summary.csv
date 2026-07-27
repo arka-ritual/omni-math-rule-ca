@@ -1,0 +1,3 @@
+proxy,n,unique_problems,abstentions,odds_ratio_abstention_per_10pp_confidence,ci_low,ci_high,bootstrap_successes,bootstrap_failures,fit_status
+setting_matched,398,100,21,0.8320393916195155,0.6462586321847414,1.0079093980989335,2000,0,ok
+question_mean,399,100,21,0.7635838961170801,0.5141372017179361,0.9955549033343086,2000,0,ok

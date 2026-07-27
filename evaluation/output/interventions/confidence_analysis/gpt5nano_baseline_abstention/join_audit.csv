@@ -1,0 +1,5 @@
+setting,baseline_n,int2_n,joined_n,joined_confidence_n,baseline_only_n,baseline_only_idx,int2_only_n,int2_only_idx
+Quant-25,100,100,100,100,0,,0,
+Quant-100,100,99,99,99,1,2115,0,
+QP6,99,100,99,99,0,,1,1671
+QP7,100,100,100,100,0,,0,

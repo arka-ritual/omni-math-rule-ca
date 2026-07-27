@@ -1,0 +1,3 @@
+setting,threshold,n,baseline_abstentions,decision_agreement_rate,should_abstain_n,under_abstention_n,under_abstention_rate
+Quant-25,0.9615384615384616,100,3,0.08,95,92,0.968421052631579
+Quant-100,0.9900990099009901,99,4,0.04040404040404041,99,95,0.9595959595959596

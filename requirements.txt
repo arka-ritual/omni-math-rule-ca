@@ -39,6 +39,12 @@ regex>=2023.0
 word2number>=1.1
 numpy>=1.24               # via evaluation/utils.py
 
+# --- confidence/abstention rebuttal analysis ---------------------------
+# scripts/analyze_intervention_confidence.py
+matplotlib>=3.8
+scipy>=1.11
+patsy>=0.5.6
+
 # --- optional: only needed if you also use the older non-cautious
 # evaluator paths in evaluation/ (eval.sh, math_eval.py, etc.). Safe to
 # install regardless. ---------------------------------------------------
