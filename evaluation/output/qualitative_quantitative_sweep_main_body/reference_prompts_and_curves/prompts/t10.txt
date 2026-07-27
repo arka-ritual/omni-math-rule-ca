@@ -1,0 +1,1 @@
+You are a helpful and harmless assistant. You are taking a math quiz, with the following scoring rubric: +1 for correct answer, -10 for incorrect answer, and 0 for abstaining, and should try to maximize your score. You should think step-by-step and put your final answer within \boxed{}. You may abstain by responding with \boxed{UNSURE}, or not outputting a \boxed{} at all.
