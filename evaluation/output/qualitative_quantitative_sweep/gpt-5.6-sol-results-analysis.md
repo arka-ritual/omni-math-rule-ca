@@ -3,7 +3,9 @@
 ## Experimental scope
 
 GPT-5.6 Sol was evaluated on the same seed-100 set of 100 Omni-MATH
-questions used for the prior GPT-5.4 Nano sweep. The four conditions were:
+questions used for the prior GPT-5.4 Nano sweep. A no-consequence `standard`
+prompt provides the model-specific baseline, and the four consequence
+conditions were:
 
 - \(r_{100}\): +1 correct, -100 incorrect, 0 abstain.
 - \(r_{\mathrm{abstain}}\): -1 correct, -10 incorrect, +10 abstain.
@@ -12,17 +14,18 @@ questions used for the prior GPT-5.4 Nano sweep. The four conditions were:
 
 GPT-5.6 Sol used explicit high reasoning effort, omitted temperature, and a
 64,000-token maximum output. Every returned row was served by OpenAI through
-OpenRouter and every condition contains the same 100 question IDs. There were
-no truncated or indeterminate outputs.
+OpenRouter and every condition contains the same 100 question IDs. The
+standard baseline had no empty outputs or timeouts, and the consequence
+conditions had no truncated or indeterminate outputs.
 
 ## Main results
 
-| Condition | Correct | Incorrect | Abstained | Coverage | Attempted accuracy | 95% Wilson CI |
-|---|---:|---:|---:|---:|---:|---:|
-| \(r_{100}\) | 79 | 18 | 3 | 97% | 81.4% | [72.6%, 87.9%] |
-| \(r_{\mathrm{abstain}}\) | 27 | 7 | 66 | 34% | 79.4% | [63.2%, 89.7%] |
-| QP6 | 74 | 24 | 2 | 98% | 75.5% | [66.1%, 83.0%] |
-| QP7 | 80 | 19 | 1 | 99% | 80.8% | [72.0%, 87.4%] |
+| Condition | Correct | Incorrect | Abstained | Coverage | Attempted accuracy | 95% Wilson CI | Δ vs 69.0% baseline |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| \(r_{100}\) | 79 | 18 | 3 | 97% | 81.4% | [72.6%, 87.9%] | +12.4 pp |
+| \(r_{\mathrm{abstain}}\) | 27 | 7 | 66 | 34% | 79.4% | [63.2%, 89.7%] | +10.4 pp |
+| QP6 | 74 | 24 | 2 | 98% | 75.5% | [66.1%, 83.0%] | +6.5 pp |
+| QP7 | 80 | 19 | 1 | 99% | 80.8% | [72.0%, 87.4%] | +11.8 pp |
 
 The most important result is the large behavioral change under
 \(r_{\mathrm{abstain}}\). Its 66% abstention rate is 63 percentage points
@@ -38,6 +41,33 @@ respectively. The corresponding 95% Wilson intervals for abstention are
 [1.0%, 8.5%], [0.6%, 7.0%], and [0.2%, 5.4%]. These results suggest that this
 model reacts much more strongly to an explicitly dominant abstention reward
 than to downside magnitude or narrative stakes alone.
+
+## No-consequence baseline and selective-accuracy deltas
+
+The GPT-5.6 Sol `standard` baseline answered 69 of 100 questions correctly,
+for **69.0% overall accuracy**. It produced a parsable answer for every
+question, so its overall and conditional-on-nonempty accuracies coincide.
+Following the paper's convention, subtracting this anchor from each
+condition's attempted accuracy gives positive deltas in all four cells:
++12.4 points for \(r_{100}\), +10.4 for \(r_{\mathrm{abstain}}\), +6.5 for
+QP6, and +11.8 for QP7.
+
+The denominator difference is most important for
+\(r_{\mathrm{abstain}}\), which attempts only 34 questions. As a paired
+robustness check, baseline accuracy restricted to each condition's attempted
+question set is:
+
+| Condition | Baseline accuracy on that condition's attempted set | Condition attempted accuracy | Paired-set difference |
+|---|---:|---:|---:|
+| \(r_{100}\) | 70.1% (68/97) | 81.4% (79/97) | +11.3 pp |
+| \(r_{\mathrm{abstain}}\) | 70.6% (24/34) | 79.4% (27/34) | +8.8 pp |
+| QP6 | 70.4% (69/98) | 75.5% (74/98) | +5.1 pp |
+| QP7 | 69.7% (69/99) | 80.8% (80/99) | +11.1 pp |
+
+Thus, the positive deltas are not solely an artifact of dropping difficult
+questions from the denominator. They remain positive when the baseline is
+restricted to the exact subsets attempted under each consequence condition,
+although the \(r_{\mathrm{abstain}}\) estimate is imprecise at N=34.
 
 ## Realized rubric behavior
 
@@ -128,6 +158,9 @@ Several qualifications matter:
   \(r_{\mathrm{abstain}}\) questions.
 - Each condition has one generation per question, so the uncertainty intervals
   describe variation across questions, not run-to-run model stochasticity.
+- The headline Δ follows the paper's convention of subtracting overall
+  baseline accuracy from selective accuracy. The paired-set table additionally
+  reports like-for-like denominators.
 - The model comparison is not a pure architecture comparison: GPT-5.6 Sol used
   high reasoning with temperature omitted, whereas the prior Nano sweep used
   medium reasoning and T=1.0.

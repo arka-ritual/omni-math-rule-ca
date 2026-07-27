@@ -15,6 +15,17 @@ Prior GPT-5.4 Nano results use reasoning effort `medium`, T=1.0, max output 64,0
 | QP7 | GPT-5.6 Sol | 100 | 80 | 19 | 1 | 0 | 80.8% | 1.0% |
 | QP7 | GPT-5.4 Nano | 100 | 50 | 47 | 3 | 0 | 51.5% | 3.0% |
 
+## GPT-5.6 Sol selective accuracy minus no-consequence baseline
+
+The GPT-5.6 Sol `standard` no-consequence baseline accuracy is **69.0%** over the same 100 questions. Following the paper's convention, Δ is attempted (selective) accuracy minus this overall baseline accuracy.
+
+| Condition | Attempted accuracy | Δ vs Sol baseline |
+|---|---:|---:|
+| $r_{100}$ | 81.4% | +12.4 pp |
+| $r_{\mathrm{abstain}}$ | 79.4% | +10.4 pp |
+| QP6 | 75.5% | +6.5 pp |
+| QP7 | 80.8% | +11.8 pp |
+
 ## GPT-5.6 Sol minus GPT-5.4 Nano
 
 | Condition | Δ attempted accuracy | Δ abstention rate |

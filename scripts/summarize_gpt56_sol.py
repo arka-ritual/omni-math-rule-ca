@@ -191,6 +191,7 @@ def write_comparison_report(
     path: Path,
     metrics_by_cell: dict[str, dict],
     nano_metrics_by_cell: dict[str, dict],
+    baseline_accuracy: float,
 ) -> None:
     lines = [
         "# GPT-5.6 Sol comparison on Omni-MATH",
@@ -215,6 +216,21 @@ def write_comparison_report(
                 f"{abstained} | {indeterminate} | {accuracy:.1f}% | {abstention_rate:.1f}% |"
             )
         deltas.append((cell.label, sol[5] - nano[5], sol[6] - nano[6]))
+    lines.extend([
+        "",
+        "## GPT-5.6 Sol selective accuracy minus no-consequence baseline",
+        "",
+        f"The GPT-5.6 Sol `standard` no-consequence baseline accuracy is "
+        f"**{baseline_accuracy:.1f}%** over the same 100 questions. Following the "
+        "paper's convention, Δ is attempted (selective) accuracy minus this overall "
+        "baseline accuracy.",
+        "",
+        "| Condition | Attempted accuracy | Δ vs Sol baseline |",
+        "|---|---:|---:|",
+    ])
+    for cell in CELLS:
+        accuracy = _metrics_row(metrics_by_cell[cell.key])[5]
+        lines.append(f"| {cell.label} | {accuracy:.1f}% | {accuracy - baseline_accuracy:+.1f} pp |")
     lines.extend([
         "",
         "## GPT-5.6 Sol minus GPT-5.4 Nano",
@@ -270,8 +286,19 @@ def summarize(repo_root: Path, num_samples: int) -> Path:
             )
             for cell in CELLS
         }
+        baseline_metrics = read_json(
+            repo_root
+            / "evaluation/output/baselines/gpt-5.6-sol/omni-math/math_eval_cot_metrics.json"
+        )
+        if baseline_metrics.get("num_samples") != 100:
+            raise ValueError("GPT-5.6 Sol baseline does not contain N=100")
         output = eval_root / "gpt-5.6-sol-comparison.md"
-        write_comparison_report(output, metrics_by_cell, nano_metrics)
+        write_comparison_report(
+            output,
+            metrics_by_cell,
+            nano_metrics,
+            float(baseline_metrics["acc"]),
+        )
     print(f"Validated all four cells and wrote {output}")
     return output
 
