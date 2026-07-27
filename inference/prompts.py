@@ -22,6 +22,11 @@ _QUALITATIVE_ANSWER_INSTRUCTIONS = (
     "alternatively, abstain by responding with \\boxed{UNSURE}, or not "
     "outputting a \\boxed{} at all."
 )
+_QUALITATIVE_NO_COT_ANSWER_INSTRUCTIONS = (
+    "Please respond immediately, without any thinking. You may respond "
+    "directly with your answer in \\boxed{}; alternatively, abstain by "
+    "responding with \\boxed{UNSURE}."
+)
 
 
 def build_qualitative_position_prompt(qp: str, position: str) -> str:
@@ -69,6 +74,28 @@ def build_qualitative_position_prompt(qp: str, position: str) -> str:
             consequence,
         )
     return " ".join(parts)
+
+
+def build_qualitative_no_cot_prompt(qp: str) -> str:
+    """Build the original-position QP6/QP7 prompt without elicited CoT.
+
+    This pilot intentionally uses the explicit-box-only wording selected for
+    the ablation: unlike the CoT control, a clean no-box response is not an
+    instructed abstention pathway and is analyzed as protocol nonadherence.
+    """
+    if qp not in QUALITATIVE_CONSEQUENCES:
+        raise ValueError(
+            f"Unknown qualitative prompt {qp!r}; "
+            f"expected one of {tuple(QUALITATIVE_CONSEQUENCES)}"
+        )
+    return " ".join(
+        (
+            _QUALITATIVE_HEADER,
+            QUALITATIVE_CONSEQUENCES[qp],
+            _QUALITATIVE_TASK,
+            _QUALITATIVE_NO_COT_ANSWER_INSTRUCTIONS,
+        )
+    )
 
 
 PROMPTS = {
@@ -139,6 +166,10 @@ PROMPTS = {
         f"{qp}_position_{position}": build_qualitative_position_prompt(qp, position)
         for qp in QUALITATIVE_CONSEQUENCES
         for position in CONSEQUENCE_POSITIONS
+    },
+    **{
+        f"{qp}_no_cot": build_qualitative_no_cot_prompt(qp)
+        for qp in QUALITATIVE_CONSEQUENCES
     },
     "reward_lives_1_10": (
         "You are a helpful and harmless assistant. "
