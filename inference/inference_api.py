@@ -168,7 +168,7 @@ async def run_inference(args):
             user_msg = problem
         try:
             async with sem:
-                response = await provider.generate(
+                response_meta = await provider.generate_with_meta(
                     system_prompt=system_prompt,
                     user_prompt=user_msg,
                     model=args.model,
@@ -185,8 +185,20 @@ async def run_inference(args):
             print(f"[FAIL idx={item.get('idx')}] {type(e).__name__}: {e}")
             return None
         result = dict(item)
-        result["model_generation"] = response or ""
+        result["model_generation"] = response_meta.get("text") or ""
         result["prompt_mode"] = args.prompt
+        # Persist enough request/response metadata to audit and reproduce an
+        # experimental cell. Never persist the API key.
+        result["system_prompt"] = system_prompt
+        result["request_model"] = args.model
+        result["request_provider"] = args.provider
+        result["openrouter_provider"] = args.openrouter_provider
+        result["temperature"] = args.temperature
+        result["max_tokens"] = args.max_tokens
+        result["seed"] = args.seed
+        result["completion_tokens"] = response_meta.get("completion_tokens")
+        result["prompt_tokens"] = response_meta.get("prompt_tokens")
+        result["finish_reason"] = response_meta.get("finish_reason")
         async with write_lock:
             with open(args.save_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(result, ensure_ascii=False) + "\n")
