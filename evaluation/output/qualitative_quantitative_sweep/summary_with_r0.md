@@ -156,11 +156,11 @@ Columns 1–6 are the quantitative rubrics; the remainder are the qualitative pr
     \toprule
     \textbf{Model} & $r_{0}$ & $r_{1}$ & $r_{5}$ & $r_{10}$ & $r_{25}$ & $r_{100}$ \\
     \midrule
-    Claude 4.5 Haiku       &  58.0  &  37  &  -63  &  -274  &  -656  & -3{,}233 \\
-    GPT-5.4 Nano           &  50.0  & -14  & -222  &  -476  & -1{,}126 & -4{,}849 \\
-    Gemini-3.1 Flash-Lite  &  55.0  &  66  &   -4  &   -71  &  -299  & -1{,}520 \\
-    DeepSeek V4 Pro        &  86.1  &  89  &   83  &    37  &    47  &   -215 \\
-    Qwen3.5 397B           &  83.4  &  77  &   19  &    -4  &  -166  & -1{,}238 \\
+    Claude 4.5 Haiku       &  58  &  37  &  -63  &  -274  &  -656  & -3{,}233 \\
+    GPT-5.4 Nano           &  50  & -14  & -222  &  -476  & -1{,}126 & -4{,}849 \\
+    Gemini-3.1 Flash-Lite  &  55  &  66  &   -4  &   -71  &  -299  & -1{,}520 \\
+    DeepSeek V4 Pro        &  86  &  89  &   83  &    37  &    47  &   -215 \\
+    Qwen3.5 397B           &  83  &  77  &   19  &    -4  &  -166  & -1{,}238 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -170,11 +170,11 @@ Columns 1–6 are the quantitative rubrics; the remainder are the qualitative pr
 
 | Model | **r_0** | r_1 | r_5 | r_10 | r_25 | r_100 |
 |---|---:|---:|---:|---:|---:|---:|
-| Claude 4.5 Haiku | 58.0 | 37 | -63 | -274 | -656 | -3,233 |
-| GPT-5.4 Nano | 50.0 | -14 | -222 | -476 | -1,126 | -4,849 |
-| Gemini-3.1 Flash-Lite | 55.0 | 66 | -4 | -71 | -299 | -1,520 |
-| DeepSeek V4 Pro | 86.1 | 89 | 83 | 37 | 47 | -215 |
-| Qwen3.5 397B | 83.4 | 77 | 19 | -4 | -166 | -1,238 |
+| Claude 4.5 Haiku | 58 | 37 | -63 | -274 | -656 | -3,233 |
+| GPT-5.4 Nano | 50 | -14 | -222 | -476 | -1,126 | -4,849 |
+| Gemini-3.1 Flash-Lite | 55 | 66 | -4 | -71 | -299 | -1,520 |
+| DeepSeek V4 Pro | 86 | 89 | 83 | 37 | 47 | -215 |
+| Qwen3.5 397B | 83 | 77 | 19 | -4 | -166 | -1,238 |
 
 
 ---
