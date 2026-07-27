@@ -40,6 +40,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import collections
 import csv
 import fnmatch
 import json
@@ -113,23 +114,65 @@ def parse_rundir_name(name: str) -> dict:
     }
 
 
+def _statuses_from_trajectories(rundir: str) -> collections.Counter | None:
+    """Cumulative exit-status counts, read from the per-instance trajectories.
+
+    `exit_statuses.yaml` cannot be trusted on a resumed cell: mini-swe-agent's
+    `RunBatchProgressManager` is constructed fresh per run with an empty
+    in-memory dict and rewrites the yaml from it, so the file only ever
+    describes the *most recent* run. A cell taken from N=20 to N=100 ends up
+    with a yaml covering 80 instances while preds.json holds 100.
+
+    The trajectories are one file per instance and are never rewritten across
+    runs, so counting them gives the true cumulative picture.
+    """
+    counts: collections.Counter = collections.Counter()
+    root = os.path.abspath(rundir)
+    found = False
+    for name in os.listdir(root):
+        d = os.path.join(root, name)
+        if not os.path.isdir(d) or name == "eval":
+            continue
+        traj = os.path.join(d, name + ".traj.json")
+        if os.name == "nt":
+            # Instance ids are ~135 chars and appear twice in this path, which
+            # puts it past MAX_PATH; see _long_path in run_mini_on_pro.py.
+            traj = "\\\\?\\" + traj
+        if not os.path.exists(traj):
+            continue
+        try:
+            with open(traj, "r", encoding="utf-8") as f:
+                info = (json.load(f).get("info") or {})
+        except Exception:
+            continue
+        status = info.get("exit_status")
+        if status:
+            counts[status] += 1
+            found = True
+    return counts if found else None
+
+
 def load_cell(rundir: str) -> dict | None:
     yp = os.path.join(rundir, "exit_statuses.yaml")
     ep = os.path.join(rundir, "eval", "eval_results.json")
     if not os.path.exists(yp):
         return None
 
-    try:
-        import yaml
-    except ImportError:
-        sys.exit("pyyaml is required: pip install pyyaml")
+    counts = _statuses_from_trajectories(rundir)
+    status_source = "trajectories"
+    if counts is None:
+        try:
+            import yaml
+        except ImportError:
+            sys.exit("pyyaml is required: pip install pyyaml")
+        with open(yp, "r", encoding="utf-8") as f:
+            statuses = (yaml.safe_load(f) or {}).get("instances_by_exit_status") or {}
+        counts = collections.Counter({k: len(v) for k, v in statuses.items()})
+        status_source = "exit_statuses.yaml (last run only)"
 
-    with open(yp, "r", encoding="utf-8") as f:
-        statuses = (yaml.safe_load(f) or {}).get("instances_by_exit_status") or {}
-
-    abstained = len(statuses.get("Abstained", []))
-    errored = sum(len(v) for k, v in statuses.items() if k in ERROR_STATUSES)
-    other = {k: len(v) for k, v in statuses.items()
+    abstained = counts.get("Abstained", 0)
+    errored = sum(v for k, v in counts.items() if k in ERROR_STATUSES)
+    other = {k: v for k, v in counts.items()
              if k not in ERROR_STATUSES and k not in ("Abstained", "Submitted")}
 
     graded = correct = None
@@ -150,7 +193,10 @@ def load_cell(rundir: str) -> dict | None:
         "correct": correct,
         "errored": errored,
         "other_statuses": other,
+        "status_source": status_source,
         "decided": decided,
+        "n_instances": sum(counts.values()),
+        "other_n": sum(other.values()),
         "abst_rate": (100.0 * abstained / decided) if decided else None,
         "abst_rate_legacy": (100.0 * abstained / graded) if graded else None,
         "sel_acc": (100.0 * correct / graded) if graded else None,
@@ -194,19 +240,29 @@ def write_markdown(rows: list[dict], path: str) -> None:
                "closely while abstention is low and diverge as it rises.")
     out.append("- **sel acc** = `correct / attempted` on the official grader.")
     out.append("- **err** = instances that never produced a decision (LimitsExceeded, "
-               "context-window blowups, …). Excluded from both rates.")
+               "LoopDetected, context-window blowups). Excluded from both rates.")
+    out.append("- **other** = any remaining exit status, e.g. `RepeatedFormatError` "
+               "(the model never emitted a parseable action). Also not a decision, "
+               "and also excluded — surfaced here so a cell losing many instances "
+               "this way is visible rather than silently shrinking the denominator.")
+    out.append("- **n** = instances with a trajectory on disk. Exit statuses are counted "
+               "from the per-instance trajectories, not `exit_statuses.yaml`: that file "
+               "is rewritten on every run and so only describes the most recent one, "
+               "which undercounts any cell that was resumed or extended.")
     out.append("")
-    out.append("| Model | Int | Framing | abst | abst (legacy) | sel acc | "
-               "abst / att / corr | err |")
-    out.append("|---|---:|---|---:|---:|---:|---|---:|")
+    out.append("| Model | Int | Framing | n | abst | abst (legacy) | sel acc | "
+               "abst / att / corr | err | other |")
+    out.append("|---|---:|---|---:|---:|---:|---:|---|---:|---:|")
     for r in sorted(rows, key=lambda r: (r["model"], str(r["intervention"]),
                                          _label_rank(r["label"]))):
         att = "—" if r["attempted"] is None else r["attempted"]
         cor = "—" if r["correct"] is None else r["correct"]
         out.append(
             f"| `{r['model']}` | {r['intervention'] or '—'} | **{r['label']}** "
+            f"| {r['n_instances']} "
             f"| {fmt(r['abst_rate'])} | {fmt(r['abst_rate_legacy'])} "
-            f"| {fmt(r['sel_acc'])} | {r['abstained']} / {att} / {cor} | {r['errored']} |"
+            f"| {fmt(r['sel_acc'])} | {r['abstained']} / {att} / {cor} "
+            f"| {r['errored']} | {r['other_n']} |"
         )
     out.append("")
 
@@ -222,8 +278,9 @@ def write_markdown(rows: list[dict], path: str) -> None:
 
 
 def write_csv(rows: list[dict], path: str) -> None:
-    cols = ["rundir", "model", "intervention", "label", "abstained", "attempted",
-            "correct", "errored", "decided", "abst_rate", "abst_rate_legacy", "sel_acc"]
+    cols = ["rundir", "model", "intervention", "label", "n_instances", "abstained",
+            "attempted", "correct", "errored", "other_n", "decided", "abst_rate",
+            "abst_rate_legacy", "sel_acc", "status_source"]
     with open(path, "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
         w.writeheader()

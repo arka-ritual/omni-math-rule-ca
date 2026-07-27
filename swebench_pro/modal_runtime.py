@@ -75,8 +75,13 @@ APP_NAME = os.environ.get("MODAL_SWE_APP_NAME", "swebench-pro-ca")
 # our App alone would report as "clean". Teardown covers both.
 EVAL_APP_NAME = os.environ.get("MODAL_SWE_EVAL_APP_NAME", "swe-bench-pro-eval")
 
+# The base-model experiment (modal_apps/vllm_sandbox.py) serves vLLM from its
+# own App. A leaked *GPU* sandbox is the most expensive thing this project can
+# strand, so teardown must cover it too.
+VLLM_APP_NAME = os.environ.get("MODAL_VLLM_APP_NAME", "omni-math-vllm")
+
 # Every App this project can leave sandboxes in.
-ALL_APP_NAMES = [APP_NAME, EVAL_APP_NAME]
+ALL_APP_NAMES = [APP_NAME, EVAL_APP_NAME, VLLM_APP_NAME]
 
 # Defaults sized for a Pro repo checkout + test run.
 #

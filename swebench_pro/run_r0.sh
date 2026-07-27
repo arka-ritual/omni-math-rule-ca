@@ -107,7 +107,24 @@ slug () { local s="$1"; s="${s//\//_}"; s="${s//:/_}"; echo "$s"; }
 # instance ids already in <output>/preds.json).
 out_dir_for () { echo "${RESULTS_ROOT}/$(slug "$1")_int5_quant${RC}_${RI}_${RA}"; }
 
+# DANGER: this teardown kills EVERY sandbox in the project's Modal apps, not
+# just the ones this process started — Modal gives no way to attribute a
+# sandbox to a caller. That is what you want for a single sequential sweep (it
+# is the backstop against leaks), but it means **you must not run two copies of
+# this script at once**: whichever finishes first will tear down the other's
+# in-flight instances.
+#
+# To run models concurrently, call swebench_pro/run.sh per model instead (it
+# installs no trap) and run modal_teardown.py by hand at the end, or set
+# NO_TEARDOWN=1 here and accept responsibility for cleanup.
+NO_TEARDOWN="${NO_TEARDOWN:-0}"
 teardown () {
+    if [ "$NO_TEARDOWN" = "1" ]; then
+        echo
+        echo "[run_r0] NO_TEARDOWN=1 — leaving sandboxes running."
+        echo "         Clean up with: python swebench_pro/scripts/modal_teardown.py"
+        return
+    fi
     echo
     echo "[run_r0] tearing down Modal sandboxes..."
     python swebench_pro/scripts/modal_teardown.py || true

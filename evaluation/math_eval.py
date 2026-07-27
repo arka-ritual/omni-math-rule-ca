@@ -9,7 +9,11 @@ from parser import *
 from trajectory import *
 from data_loader import load_data, load_data_vanilla
 from python_executor import PythonExecutor
-from model_utils import load_hf_lm_and_tokenizer, generate_completions
+# NOTE: `model_utils` (load_hf_lm_and_tokenizer / generate_completions) was
+# imported here but never used — this script only grades a precomputed
+# generations JSONL. The import pulled in transformers (and torch), which made
+# grading impossible on a machine without them installed. `math_eval_l3.py`
+# still imports model_utils, since it genuinely runs HF generation.
 
 import pdb
 

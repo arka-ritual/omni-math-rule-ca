@@ -90,6 +90,33 @@ def cell_name(prompt: str, rubric: tuple | None) -> str:
     return "quantitative_grading_r{}_{}_{}".format(*rubric)
 
 
+def select_cells(names: list[str] | None) -> list[tuple[str, tuple | None]]:
+    """All (prompt, rubric) cells, or just the ones named.
+
+    Accepts either the full cell name as it appears in output filenames
+    (`quantitative_grading_r1_-1_0`) or the bare rubric triple (`1_-1_0`),
+    since the latter is how the rubrics are usually referred to in
+    conversation.
+    """
+    cells = ([(p, None) for p in QUALITATIVE]
+             + [("quantitative_grading", r) for r in QUANTITATIVE])
+    if not names:
+        return cells
+
+    wanted = {n.strip() for n in names}
+    expanded = {n if n.startswith(("QP", "quantitative_grading", "ultra", "standard"))
+                else f"quantitative_grading_r{n}" for n in wanted}
+    picked = [(p, r) for p, r in cells if cell_name(p, r) in expanded]
+
+    unmatched = expanded - {cell_name(p, r) for p, r in cells}
+    if unmatched:
+        raise SystemExit(
+            f"--framings did not match: {sorted(unmatched)}\n"
+            f"available: {sorted(cell_name(p, r) for p, r in cells)}"
+        )
+    return picked
+
+
 def run_cell(slug: str, base_url: str, model_id: str, prompt: str,
              rubric: tuple | None, args) -> bool:
     cell = cell_name(prompt, rubric)
@@ -110,6 +137,13 @@ def run_cell(slug: str, base_url: str, model_id: str, prompt: str,
         "--temperature", str(args.temperature),
         "--max_tokens", str(args.max_tokens),
         "--concurrency", str(args.concurrency),
+        # The vLLM provider defaults to a 60 s per-request timeout on the
+        # base-model /v1/completions path. At concurrency 32 with 2048 max
+        # tokens, roughly half of these requests exceed it and are dropped —
+        # and because timeouts correlate with longer generations, what survives
+        # is biased toward short answers, which is precisely the wrong bias for
+        # measuring boxing and abstention.
+        "--base_model_timeout", str(args.request_timeout),
     ]
     for s in STOP_SEQUENCES:
         cmd += ["--stop", s]
@@ -145,8 +179,16 @@ def main() -> int:
                     help="Bounded because raw completions ramble and GPU time is "
                          "billed per second (default 2048).")
     ap.add_argument("--concurrency", type=int, default=32)
+    ap.add_argument("--request-timeout", type=float, default=600.0,
+                    dest="request_timeout",
+                    help="Per-request timeout in seconds for the raw-completion "
+                         "calls (default 600). The provider's own default of 60 is "
+                         "far too low for batched 2048-token generations.")
     ap.add_argument("--max-model-len", type=int, default=8192, dest="max_model_len")
     ap.add_argument("--gpu", default=None, help="Override the per-model GPU choice.")
+    ap.add_argument("--framings", nargs="+", default=None,
+                    help="Restrict to these cells, e.g. --framings QP4 QP7 1_-1_0 1_-10_0. "
+                         "Accepts full cell names or bare rubric triples. Default: all 9.")
     ap.add_argument("--prefetch-only", action="store_true",
                     help="Download weights into the cache Volume (CPU-only) and exit.")
     ap.add_argument("--no-eval", action="store_true")
@@ -162,14 +204,18 @@ def main() -> int:
     os.makedirs(os.path.join(REPO_ROOT, RESULTS_DIR), exist_ok=True)
     os.makedirs(os.path.join(REPO_ROOT, EVAL_DIR), exist_ok=True)
 
+    cells = select_cells(args.framings)
+    print(f"cells per model ({len(cells)}): "
+          f"{', '.join(cell_name(p, r) for p, r in cells)}")
+
     # Always prefetch first: downloading inside the GPU sandbox bills tens of GB
-    # of transfer at GPU rates.
+    # of transfer at GPU rates. Only for the models actually being served —
+    # prefetching the whole roster on every invocation spins up CPU sandboxes
+    # for weights this run will never touch.
     for hf_id, _, _ in selected:
         prefetch(hf_id)
     if args.prefetch_only:
         return 0
-
-    cells = [(p, None) for p in QUALITATIVE] + [("quantitative_grading", r) for r in QUANTITATIVE]
     failures = []
     for hf_id, slug, tuning in selected:
         print(f"\n{'=' * 70}\n{hf_id}  ({tuning})  — {len(cells)} cells\n{'=' * 70}", flush=True)
