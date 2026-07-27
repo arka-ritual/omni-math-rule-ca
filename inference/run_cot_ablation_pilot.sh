@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Run the five-model QP6/QP7 no-CoT pilot through OpenRouter.
+# Run the five-model QP6/QP7 no-CoT ablation through OpenRouter.
 #
-# The default sweep is 10 cells x 5 questions = 50 new completions. All ten
-# cells run concurrently, with five requests per cell. Seed 100 makes the
-# selected questions the strict five-question prefix of the existing
-# consequence-position N=100 sample.
+# The default remains the preregistered 5-question pilot. Pass
+# --num-samples 100 to extend each cell in place to the full matched sample;
+# inference_api.py's prefix-stable sampler and index-based resume then issue
+# only the 95 missing requests per cell.
 #
 # Source ~/.bashrc through an interactive shell:
-#   bash -ic 'cd /path/to/repo && bash inference/run_cot_ablation_pilot.sh'
+#   bash -ic 'cd /path/to/repo && bash inference/run_cot_ablation_pilot.sh --num-samples 100'
 
 set -euo pipefail
 
@@ -17,7 +17,7 @@ NUM_SAMPLES="${NUM_SAMPLES:-5}"
 SEED="${SEED:-100}"
 TEMPERATURE="${TEMPERATURE:-1.0}"
 MAX_TOKENS="${MAX_TOKENS:-64000}"
-CONCURRENCY="${CONCURRENCY:-5}"
+CONCURRENCY="${CONCURRENCY:-20}"
 MAX_CELL_ATTEMPTS="${MAX_CELL_ATTEMPTS:-4}"
 RESULTS_DIR="${RESULTS_DIR:-inference/results/cot_ablation_pilot}"
 EVAL_DIR="${EVAL_DIR:-evaluation/output/cot_ablation_pilot}"
@@ -50,8 +50,8 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-if [ "$NUM_SAMPLES" -ne 5 ]; then
-    echo "ERROR: this preregistered pilot requires --num-samples 5." >&2
+if [ "$NUM_SAMPLES" -lt 1 ] || [ "$NUM_SAMPLES" -gt 100 ]; then
+    echo "ERROR: --num-samples must be between 1 and 100." >&2
     exit 2
 fi
 if [ "$SEED" -ne 100 ]; then
@@ -94,9 +94,9 @@ validate_filter qp "$ONLY_QP" "${QPS[@]}"
 
 mkdir -p "$RESULTS_DIR" "$EVAL_DIR"
 
-echo "No-CoT pilot"
+echo "No-CoT CoT-ablation run"
 echo "  samples=$NUM_SAMPLES seed=$SEED temperature=$TEMPERATURE max_tokens=$MAX_TOKENS"
-echo "  per-cell concurrency=$CONCURRENCY; selected cells run in parallel"
+echo "  per-model concurrency=$CONCURRENCY; model workers run in parallel"
 echo "  model=${ONLY_MODEL:-all} qp=${ONLY_QP:-all}"
 
 run_cell() {
@@ -149,17 +149,24 @@ run_cell() {
         --output_dir "$EVAL_DIR/$stem"
 }
 
+run_model() {
+    local entry="$1"
+    local slug display model_id provider_tag qp
+    IFS='|' read -r slug display model_id provider_tag <<< "$entry"
+    for qp in "${QPS[@]}"; do
+        [ -n "$ONLY_QP" ] && [ "$ONLY_QP" != "$qp" ] && continue
+        run_cell "$slug" "$display" "$model_id" "$provider_tag" "$qp"
+    done
+}
+
 pids=()
 labels=()
 for entry in "${MODELS[@]}"; do
-    IFS='|' read -r slug display model_id provider_tag <<< "$entry"
+    IFS='|' read -r slug _ <<< "$entry"
     [ -n "$ONLY_MODEL" ] && [ "$ONLY_MODEL" != "$slug" ] && continue
-    for qp in "${QPS[@]}"; do
-        [ -n "$ONLY_QP" ] && [ "$ONLY_QP" != "$qp" ] && continue
-        run_cell "$slug" "$display" "$model_id" "$provider_tag" "$qp" &
-        pids+=("$!")
-        labels+=("$slug/$qp")
-    done
+    run_model "$entry" &
+    pids+=("$!")
+    labels+=("$slug")
 done
 
 failed=0

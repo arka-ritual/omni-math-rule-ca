@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Analyze the matched QP6/QP7 CoT-removal pilot.
+"""Analyze the matched QP6/QP7 CoT-removal experiment.
 
 The CoT controls are reused from the original-position N=100 experiment. The
 no-CoT prompt permits abstention only through ``\\boxed{UNSURE}``, so a clean
@@ -83,6 +83,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dataset", type=Path, default=Path("omni_math_rule.jsonl")
+    )
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=5,
+        help="Prefix-stable seed-100 sample size to analyze (default: 5)",
     )
     parser.add_argument(
         "--control-results-dir",
@@ -316,12 +322,14 @@ def validate_rows(
 
 
 def collect_rows(args: argparse.Namespace) -> tuple[list[dict[str, Any]], set[str]]:
-    pilot_indices = selected_indices(args.dataset)
-    if pilot_indices != EXPECTED_PILOT_INDICES:
+    if args.num_samples < 1 or args.num_samples > 100:
+        raise ValueError("--num-samples must be between 1 and 100")
+    selected = selected_indices(args.dataset, count=args.num_samples)
+    if args.num_samples == 5 and selected != EXPECTED_PILOT_INDICES:
         raise ValueError(
-            f"Pilot sample drifted: expected {EXPECTED_PILOT_INDICES}, got {pilot_indices}"
+            f"Pilot sample drifted: expected {EXPECTED_PILOT_INDICES}, got {selected}"
         )
-    expected = set(pilot_indices)
+    expected = set(selected)
     details: list[dict[str, Any]] = []
     expected_coding_keys: set[str] = set()
 
@@ -566,7 +574,7 @@ def write_summary_markdown(
     manual_complete: bool,
 ) -> None:
     lines = [
-        "# CoT-removal pilot summary",
+        "# CoT-removal summary",
         "",
         f"Manual visible-output coding complete: **{'yes' if manual_complete else 'no (provisional heuristic labels)'}**",
         "",
@@ -669,7 +677,11 @@ def main() -> None:
         args.output_dir / "summary.md",
         summary,
         comparison,
-        manual_complete=bool(coding) and set(coding) == expected_keys,
+        manual_complete=(
+            bool(coding)
+            and set(coding) == expected_keys
+            and all(entry.get("reviewed") is True for entry in coding.values())
+        ),
     )
     write_review_queue(args.output_dir / "review_queue.md", details)
     print(

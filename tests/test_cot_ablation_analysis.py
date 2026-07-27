@@ -1,8 +1,10 @@
 import unittest
+from pathlib import Path
 
 from scripts.analyze_cot_ablation_pilot import (
     protocol_outcome,
     remove_boxed_expressions,
+    selected_indices,
     visible_reasoning_candidate,
 )
 
@@ -16,6 +18,13 @@ def item(generation, *, finish_reason="stop", answer="5"):
 
 
 class CotAblationAnalysisTest(unittest.TestCase):
+    def test_seed_100_sample_is_prefix_stable(self):
+        dataset = Path("omni_math_rule.jsonl")
+        first_five = selected_indices(dataset, seed=100, count=5)
+        first_hundred = selected_indices(dataset, seed=100, count=100)
+        self.assertEqual(first_five, (539, 903, 1464, 2279, 2637))
+        self.assertTrue(set(first_five).issubset(first_hundred))
+
     def test_remove_nested_box(self):
         self.assertEqual(
             remove_boxed_expressions("Answer: \\boxed{\\frac{1}{2}}."),
