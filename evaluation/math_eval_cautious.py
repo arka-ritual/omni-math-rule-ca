@@ -88,6 +88,10 @@ _THINK_CLOSE_RE = re.compile(r"</think\s*>", re.IGNORECASE)
 _TRUNCATED_FINISH_REASONS = {
     "length", "max_tokens", "max_output_tokens", "model_length",
     "MAX_TOKENS",
+    # OpenRouter can return a partial completion with finish_reason="error"
+    # when an upstream generation terminates unexpectedly. A missing final
+    # box in such a response is not a deliberate abstention.
+    "error",
 }
 
 
@@ -125,11 +129,12 @@ def has_explicit_abstain_marker(text: str) -> bool:
 
 
 def is_truncated(item: dict) -> bool:
-    """True if the inference item was cut by the max-token budget.
+    """True if inference ended before the model produced a complete response.
 
     Looks for `finish_reason` (preferred) or legacy `stop_reason` fields
-    on the item; absence of either is treated as 'not truncated' (the
-    intervention runner always writes finish_reason).
+    on the item. This includes max-token termination and upstream generation
+    errors that return partial text. Absence of either is treated as
+    "not truncated" (the intervention runner always writes finish_reason).
     """
     fr = item.get("finish_reason") or item.get("stop_reason")
     if fr is None:

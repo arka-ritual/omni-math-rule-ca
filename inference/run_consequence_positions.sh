@@ -30,6 +30,7 @@ ONLY_MODEL=""
 ONLY_QP=""
 ONLY_POSITION=""
 DRY_RUN=0
+NO_SUMMARY=0
 
 usage() {
     sed -n '1,36p' "$0" | sed 's/^# \{0,1\}//'
@@ -50,6 +51,7 @@ while [ "$#" -gt 0 ]; do
         --eval-dir) EVAL_DIR="$2"; shift 2 ;;
         --python) PYTHON_BIN="$2"; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
+        --no-summary) NO_SUMMARY=1; shift ;;
         -h|--help) usage ;;
         *) echo "Unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -182,7 +184,7 @@ if [ "$failed" -ne 0 ]; then
     exit 1
 fi
 
-if [ "$DRY_RUN" -eq 0 ]; then
+if [ "$DRY_RUN" -eq 0 ] && [ "$NO_SUMMARY" -eq 0 ]; then
     summary_args=(
         --eval-dir "$EVAL_DIR"
         --output-markdown "$EVAL_DIR/summary.md"
