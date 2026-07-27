@@ -66,4 +66,65 @@ statistical-significance claims will be made.
 
 ## Results
 
-Pending pilot execution.
+All 50 requested no-CoT generations completed with provider finish reason
+`stop`; there were no failed or empty generations. The analyzer verified that
+each no-CoT cell contains exactly the five preregistered question indices and
+that the reused CoT controls match those indices, model IDs, upstream
+providers, seed, temperature, token limit, and prompt position.
+
+### Behavior and adherence
+
+| Model | QP | CoT as-prompted abstain | No-CoT explicit abstain | No-CoT boxed | No-CoT visible-direct | Refusals |
+|---|---:|---:|---:|---:|---:|---:|
+| Claude Haiku 4.5 | QP6 | 0/5 | 0/5 | 5/5 | 0/5 | 0/5 |
+| Claude Haiku 4.5 | QP7 | 0/5 | 0/5 | 5/5 | 0/5 | 0/5 |
+| DeepSeek V4 Pro | QP6 | 0/5 | 0/5 | 5/5 | 5/5 | 0/5 |
+| DeepSeek V4 Pro | QP7 | 0/5 | 0/5 | 5/5 | 4/5 | 0/5 |
+| Gemini 3.1 Flash Lite | QP6 | 0/5 | 0/5 | 5/5 | 5/5 | 0/5 |
+| Gemini 3.1 Flash Lite | QP7 | 0/5 | 0/5 | 5/5 | 5/5 | 0/5 |
+| GPT-5.4 Nano | QP6 | 0/5 | 1/5 | 5/5 | 2/5 | 0/5 |
+| GPT-5.4 Nano | QP7 | 0/5 | 1/5 | 5/5 | 4/5 | 0/5 |
+| Qwen3.5 397B A17B | QP6 | 1/5 | 0/5 | 5/5 | 2/5 | 0/5 |
+| Qwen3.5 397B A17B | QP7 | 1/5 | 0/5 | 4/5 | 1/5 | 0/5 |
+
+There was no refusal or unwillingness to engage in any no-CoT completion
+(0/50). Forty-nine of 50 outputs contained a box. The two explicit
+abstentions were both from GPT-5.4 Nano, one under each QP. Qwen's QP7 output
+for index 539 gave a visible solution but no box; because no-box abstention was
+deliberately removed from the no-CoT wording, this is a protocol violation,
+not an abstention.
+
+Manual review shows that compliance with “without any thinking” is
+model-dependent. Gemini was visibly direct in all 10 responses, DeepSeek in
+9/10, GPT-5.4 Nano in 6/10, Qwen in 3/10, and Claude in 0/10. DeepSeek and
+Qwen each supplied provider-separated hidden reasoning on all 10 calls. Those
+traces are reported separately and do not count against visible adherence.
+
+### Directional accuracy comparison
+
+| Model | QP | CoT answered | CoT selective accuracy | No-CoT answered | No-CoT selective accuracy | No-CoT minus CoT |
+|---|---:|---:|---:|---:|---:|---:|
+| Claude Haiku 4.5 | QP6 | 5 | 60% | 5 | 80% | +20 pp |
+| Claude Haiku 4.5 | QP7 | 5 | 60% | 5 | 80% | +20 pp |
+| DeepSeek V4 Pro | QP6 | 5 | 100% | 5 | 100% | 0 pp |
+| DeepSeek V4 Pro | QP7 | 5 | 100% | 5 | 100% | 0 pp |
+| Gemini 3.1 Flash Lite | QP6 | 5 | 80% | 5 | 20% | -60 pp |
+| Gemini 3.1 Flash Lite | QP7 | 5 | 80% | 5 | 20% | -60 pp |
+| GPT-5.4 Nano | QP6 | 5 | 40% | 4 | 50% | +10 pp |
+| GPT-5.4 Nano | QP7 | 5 | 60% | 4 | 25% | -35 pp |
+| Qwen3.5 397B A17B | QP6 | 4 | 100% | 5 | 100% | 0 pp |
+| Qwen3.5 397B A17B | QP7 | 4 | 100% | 4 | 100% | 0 pp |
+
+The pilot therefore does not show a uniform directional effect on either
+abstention or accuracy. Most cells had no abstention change; GPT added one
+explicit abstention in each no-CoT cell, while Qwen's CoT controls had one
+valid no-box abstention per QP. Accuracy improved for Claude, was unchanged
+for DeepSeek and Qwen, declined sharply for Gemini, and was mixed for GPT.
+These are five-question diagnostics, not statistical estimates. In
+particular, the substantial visible nonadherence by Claude and Qwen means
+their cells are weak tests of a clean no-CoT intervention, and the changed
+no-box abstention option remains a prompt-confound for every model.
+
+The machine-readable results, matched outcomes, manual coding, and complete
+review queue are under `evaluation/output/cot_ablation_pilot/`; raw
+generations are under `inference/results/cot_ablation_pilot/`.

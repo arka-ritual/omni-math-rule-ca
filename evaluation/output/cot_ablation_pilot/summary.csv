@@ -1,0 +1,21 @@
+model,model_slug,qp,condition,total,boxed,boxing_rate,explicit_abstained,explicit_abstention_rate,as_prompted_abstained,as_prompted_abstention_rate,no_box,mixed_box,indeterminate,answered,correct,selective_accuracy,provider_reasoning,visible_reasoning,visible_direct_rate,refusals
+Claude Haiku 4.5,claude-haiku-4-5,QP6,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,3,60.0,0,,,
+Claude Haiku 4.5,claude-haiku-4-5,QP6,no_cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,4,80.0,0,5,0.0,0
+Claude Haiku 4.5,claude-haiku-4-5,QP7,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,3,60.0,0,,,
+Claude Haiku 4.5,claude-haiku-4-5,QP7,no_cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,4,80.0,0,5,0.0,0
+DeepSeek V4 Pro,deepseek-v4-pro,QP6,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,5,100.0,5,,,
+DeepSeek V4 Pro,deepseek-v4-pro,QP6,no_cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,5,100.0,5,0,100.0,0
+DeepSeek V4 Pro,deepseek-v4-pro,QP7,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,5,100.0,5,,,
+DeepSeek V4 Pro,deepseek-v4-pro,QP7,no_cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,5,100.0,5,1,80.0,0
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP6,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,4,80.0,0,,,
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP6,no_cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,1,20.0,0,0,100.0,0
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP7,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,4,80.0,0,,,
+Gemini 3.1 Flash Lite,gemini-3.1-flash-lite,QP7,no_cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,1,20.0,0,0,100.0,0
+GPT-5.4 Nano,gpt-5.4-nano,QP6,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,2,40.0,0,,,
+GPT-5.4 Nano,gpt-5.4-nano,QP6,no_cot,5,5,100.0,1,20.0,1,20.0,0,0,0,4,2,50.0,0,3,40.0,0
+GPT-5.4 Nano,gpt-5.4-nano,QP7,cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,3,60.0,0,,,
+GPT-5.4 Nano,gpt-5.4-nano,QP7,no_cot,5,5,100.0,1,20.0,1,20.0,0,0,0,4,1,25.0,0,1,80.0,0
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP6,cot,5,4,80.0,0,0.0,1,20.0,1,0,0,4,4,100.0,5,,,
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP6,no_cot,5,5,100.0,0,0.0,0,0.0,0,0,0,5,5,100.0,5,3,40.0,0
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP7,cot,5,4,80.0,0,0.0,1,20.0,1,0,0,4,4,100.0,5,,,
+Qwen3.5 397B A17B,qwen3.5-397b-a17b,QP7,no_cot,5,4,80.0,0,0.0,0,0.0,1,0,0,4,4,100.0,5,4,20.0,0

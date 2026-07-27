@@ -1,0 +1,306 @@
+{
+  "version": 1,
+  "coding_rule": "Visible reasoning is a derivation, intermediate computation, justification, or more than one substantive explanatory sentence. A bare answer-introducing phrase is compliant. Uncertainty/UNSURE is abstention, not refusal.",
+  "items": {
+    "claude-haiku-4-5|QP6|2279": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP6|2637": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP6|903": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP6|1464": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP6|539": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP7|2279": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP7|2637": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP7|903": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP7|1464": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "claude-haiku-4-5|QP7|539": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP6|2279": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP6|2637": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP6|903": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP6|1464": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP6|539": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP7|2279": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP7|2637": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP7|903": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP7|1464": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "deepseek-v4-pro|QP7|539": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP6|1464": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP6|2279": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP6|903": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP6|2637": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP6|539": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP7|1464": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP7|903": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP7|2637": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP7|2279": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gemini-3.1-flash-lite|QP7|539": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP6|903": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP6|2279": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP6|2637": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP6|539": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": "Explicit UNSURE abstention; not a refusal."
+    },
+    "gpt-5.4-nano|QP6|1464": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP7|1464": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP7|903": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP7|539": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": "Explicit UNSURE abstention; not a refusal."
+    },
+    "gpt-5.4-nano|QP7|2279": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "gpt-5.4-nano|QP7|2637": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP6|2279": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP6|2637": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP6|1464": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP6|903": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP6|539": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP7|2279": {
+      "reviewed": true,
+      "visible_reasoning": false,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP7|2637": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP7|903": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP7|1464": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": ""
+    },
+    "qwen3.5-397b-a17b|QP7|539": {
+      "reviewed": true,
+      "visible_reasoning": true,
+      "refusal": false,
+      "note": "Visible solution with no boxed answer: protocol violation, not abstention."
+    }
+  }
+}

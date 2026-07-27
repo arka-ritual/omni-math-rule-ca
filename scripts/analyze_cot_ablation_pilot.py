@@ -538,9 +538,21 @@ def write_csv(path: Path, rows: list[dict[str, Any]], fields: list[str] | None =
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = fields or list(rows[0])
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=fieldnames,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
         writer.writeheader()
-        writer.writerows(rows)
+        for row in rows:
+            sanitized = {
+                key: "\n".join(line.rstrip() for line in value.splitlines())
+                if isinstance(value, str)
+                else value
+                for key, value in row.items()
+            }
+            writer.writerow(sanitized)
 
 
 def format_optional(value: Any, suffix: str = "") -> str:
@@ -620,7 +632,10 @@ def write_review_queue(path: Path, details: list[dict[str, Any]]) -> None:
             ]
         )
         response = row["committed_response"] or "[EMPTY]"
-        lines.extend(f"> {line}" if line else ">" for line in response.splitlines())
+        lines.extend(
+            f"> {line.rstrip()}" if line.rstrip() else ">"
+            for line in response.splitlines()
+        )
         lines.append("")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
