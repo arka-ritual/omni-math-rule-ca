@@ -22,6 +22,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -960,6 +961,63 @@ def plot_confidence_by_outcome(frame: pd.DataFrame, output: Path) -> None:
     save_figure(fig, output)
 
 
+def plot_model_confidence_distributions(
+    int2: pd.DataFrame, output: Path
+) -> None:
+    """Plot all parsed Int2 confidence reports, pooled across settings."""
+    fig, axes = plt.subplots(
+        2, 3, figsize=(14, 8), sharex=True, sharey=True
+    )
+    bins = np.linspace(0, 1, 21)
+    for ax, model in zip(axes.ravel(), MODELS):
+        values = int2.loc[
+            (int2["model"] == model) & int2["int2_confidence"].notna(),
+            "int2_confidence",
+        ].to_numpy(float)
+        weights = np.full(len(values), 100 / len(values))
+        ax.hist(
+            values,
+            bins=bins,
+            weights=weights,
+            color=MODEL_COLORS[model],
+            alpha=0.82,
+            edgecolor="white",
+            linewidth=0.5,
+        )
+        mean = float(np.mean(values))
+        median = float(np.median(values))
+        ax.axvline(
+            mean,
+            color="black",
+            linestyle="--",
+            linewidth=1.3,
+            label=f"Mean: {100 * mean:.1f}%",
+        )
+        ax.axvline(
+            median,
+            color="black",
+            linestyle=":",
+            linewidth=1.3,
+            label=f"Median: {100 * median:.1f}%",
+        )
+        ax.set_title(f"{MODEL_DISPLAY[model]} (n={len(values)})")
+        ax.grid(axis="y", alpha=0.22)
+        ax.legend(frameon=False, fontsize=8)
+    axes.ravel()[-1].axis("off")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("Share of parsed Int2 rollouts (%)")
+    for ax in axes[-1, :2]:
+        ax.set_xlabel("Verbalized confidence")
+    for ax in axes.ravel()[:-1]:
+        ax.set_xlim(0, 1)
+        ax.xaxis.set_major_formatter(PercentFormatter(xmax=1, decimals=0))
+    fig.suptitle(
+        "Distribution of pre-consequence Int2 confidence by model\n"
+        "All four consequence settings pooled"
+    )
+    save_figure(fig, output)
+
+
 def plot_adjusted_odds(models: pd.DataFrame, output: Path) -> None:
     data = models[models["proxy"] == "setting_matched"].copy()
     order = MODELS + ["All models"]
@@ -1328,7 +1386,9 @@ def write_report(
         "outcomes (diagnostic only; Int2 outcome is not used as the primary outcome).",
         "- `quantitative_proxy_decision_adherence.csv`: quantitative-threshold "
         "diagnostic.",
-        "- `plots/`: publication-oriented PNG and PDF figures.",
+        "- `plots/int2_confidence_distribution_by_model.*`: per-model confidence "
+        "histograms using every parsed Int2 report, with all four settings pooled.",
+        "- `plots/`: additional publication-oriented PNG and PDF figures.",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -1494,6 +1554,9 @@ def main() -> None:
     )
     plot_confidence_by_outcome(
         primary, plots / "int2_confidence_by_baseline_decision"
+    )
+    plot_model_confidence_distributions(
+        int2, plots / "int2_confidence_distribution_by_model"
     )
     plot_adjusted_odds(
         adjusted, plots / "confidence_adjusted_odds_ratios"

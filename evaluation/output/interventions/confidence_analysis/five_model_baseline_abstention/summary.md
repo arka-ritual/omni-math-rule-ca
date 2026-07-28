@@ -118,4 +118,5 @@ This is strong diagnostic evidence against a purely confidence-only explanation,
 - `confidence_adjusted_model_summary.csv` and `confidence_adjusted_contrasts.csv`: adjusted estimates.
 - `rollout_abstention_comparison.csv`: baseline versus Int2 intervention outcomes (diagnostic only; Int2 outcome is not used as the primary outcome).
 - `quantitative_proxy_decision_adherence.csv`: quantitative-threshold diagnostic.
-- `plots/`: publication-oriented PNG and PDF figures.
+- `plots/int2_confidence_distribution_by_model.*`: per-model confidence histograms using every parsed Int2 report, with all four settings pooled.
+- `plots/`: additional publication-oriented PNG and PDF figures.
