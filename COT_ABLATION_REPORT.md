@@ -64,25 +64,24 @@ remain protocol violations and are not counted as abstentions.
 
 ### Abstention-rate significance comparison
 
-| Model | Condition | Original CoT abstention rate | No-CoT abstention rate | Delta abstention rate | Significant difference |
+| Model | Condition | Original CoT abstention rate | No-CoT abstention rate | Delta abstention rate | Holm-adjusted significant difference |
 |---|---:|---:|---:|---:|---:|
-| Claude Haiku 4.5 | QP6 | 2.0% | 5.3% | +3.3 pp | No (`p = 0.375`) |
-| Claude Haiku 4.5 | QP7 | 2.0% | 0.0% | -2.0 pp | No (`p = 0.500`) |
-| DeepSeek V4 Pro | QP6 | 2.2% | 4.3% | +2.2 pp | No (`p = 0.500`) |
-| DeepSeek V4 Pro | QP7 | 2.2% | 2.1% | -0.05 pp | No (`p = 1.000`) |
-| Gemini 3.1 Flash Lite | QP6 | 0.0% | 11.1% | +11.1 pp | **Yes (`p = 0.002`)** |
-| Gemini 3.1 Flash Lite | QP7 | 1.0% | 2.0% | +1.0 pp | No (`p = 1.000`) |
-| GPT-5.4 Nano | QP6 | 9.9% | 19.0% | +9.2 pp | No (`p = 0.092`) |
-| GPT-5.4 Nano | QP7 | 4.2% | 11.1% | +6.9 pp | **Yes (`p = 0.031`)** |
-| Qwen3.5 397B A17B | QP6 | 3.1% | 5.4% | +2.3 pp | No (`p = 0.688`) |
-| Qwen3.5 397B A17B | QP7 | 9.9% | 1.0% | -8.8 pp | **Yes (`p = 0.008`)** |
+| Claude Haiku 4.5 | QP6 | 2.0% | 5.3% | +3.3 pp | No (`p_adj = 1.000`) |
+| Claude Haiku 4.5 | QP7 | 2.0% | 0.0% | -2.0 pp | No (`p_adj = 1.000`) |
+| DeepSeek V4 Pro | QP6 | 2.2% | 4.3% | +2.2 pp | No (`p_adj = 1.000`) |
+| DeepSeek V4 Pro | QP7 | 2.2% | 2.1% | -0.05 pp | No (`p_adj = 1.000`) |
+| Gemini 3.1 Flash Lite | QP6 | 0.0% | 11.1% | +11.1 pp | **Yes (`p_adj = 0.0195`)** |
+| Gemini 3.1 Flash Lite | QP7 | 1.0% | 2.0% | +1.0 pp | No (`p_adj = 1.000`) |
+| GPT-5.4 Nano | QP6 | 9.9% | 19.0% | +9.2 pp | No (`p_adj = 0.646`) |
+| GPT-5.4 Nano | QP7 | 4.2% | 11.1% | +6.9 pp | No (`p_adj = 0.250`) |
+| Qwen3.5 397B A17B | QP6 | 3.1% | 5.4% | +2.3 pp | No (`p_adj = 1.000`) |
+| Qwen3.5 397B A17B | QP7 | 9.9% | 1.0% | -8.8 pp | No (`p_adj = 0.0703`) |
 
 Delta is no-CoT minus original CoT and is calculated from the unrounded
 abstained/answered ratios. Significance uses a two-sided exact McNemar test on
-the 100 matched question-level abstention indicators in each row; bolded cells
-are significant at the nominal 5% level. The displayed p-values are uncorrected
-across the ten comparisons. After Holm correction, only Gemini QP6 remains
-significant (`p_adj = 0.0195`).
+the 100 matched question-level abstention indicators in each row. The final
+column reports p-values Holm-adjusted across all ten comparisons, and bolded
+cells are significant at the adjusted 5% level.
 
 The effect of removing the CoT instruction is strongly model-dependent. It
 substantially reduces selective accuracy for Gemini and GPT-5.4 Nano, is
