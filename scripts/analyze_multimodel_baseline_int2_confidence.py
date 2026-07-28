@@ -821,6 +821,91 @@ def quantitative_proxy_adherence(frame: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def int2_ece_tables(
+    int2: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Calculate standard 10-bin ECE for each model's Int2 candidates."""
+    summary_rows = []
+    bin_rows = []
+    for model in MODELS:
+        model_rows = int2[int2["model"] == model]
+        valid = model_rows[
+            model_rows["int2_confidence"].notna()
+            & model_rows["int2_candidate_correct"].notna()
+        ].copy()
+        valid["calibration_bin"] = np.clip(
+            np.floor(valid["int2_confidence"].astype(float) * 10).astype(int),
+            0,
+            9,
+        )
+        total = len(valid)
+        ece = 0.0
+        maximum_gap = 0.0
+        for bin_index in range(10):
+            group = valid[valid["calibration_bin"] == bin_index]
+            n = len(group)
+            correct = int(group["int2_candidate_correct"].sum()) if n else 0
+            mean_confidence = (
+                float(group["int2_confidence"].mean()) if n else math.nan
+            )
+            candidate_accuracy = correct / n if n else math.nan
+            absolute_gap = (
+                abs(mean_confidence - candidate_accuracy)
+                if n
+                else math.nan
+            )
+            contribution = n / total * absolute_gap if n else 0.0
+            ece += contribution
+            if n:
+                maximum_gap = max(maximum_gap, absolute_gap)
+            low, high = wilson_interval(correct, n)
+            bin_rows.append(
+                {
+                    "model": model,
+                    "model_display": MODEL_DISPLAY[model],
+                    "bin_index": bin_index,
+                    "bin_label": BIN_LABELS[bin_index],
+                    "n": n,
+                    "correct": correct,
+                    "mean_confidence": mean_confidence,
+                    "candidate_accuracy": candidate_accuracy,
+                    "absolute_calibration_gap": absolute_gap,
+                    "ece_contribution": contribution,
+                    "accuracy_ci_low": low,
+                    "accuracy_ci_high": high,
+                }
+            )
+        confidence = valid["int2_confidence"].to_numpy(float)
+        correctness = valid["int2_candidate_correct"].to_numpy(float)
+        summary_rows.append(
+            {
+                "model": model,
+                "model_display": MODEL_DISPLAY[model],
+                "int2_rows": len(model_rows),
+                "parsed_confidence_n": int(
+                    model_rows["int2_confidence"].notna().sum()
+                ),
+                "gradeable_candidate_n": int(
+                    model_rows["int2_candidate_correct"].notna().sum()
+                ),
+                "ece_n": total,
+                "excluded_from_ece_n": len(model_rows) - total,
+                "occupied_bins": valid["calibration_bin"].nunique(),
+                "mean_confidence": float(np.mean(confidence)),
+                "candidate_accuracy": float(np.mean(correctness)),
+                "signed_calibration_gap": float(
+                    np.mean(confidence) - np.mean(correctness)
+                ),
+                "ece_10_equal_width": ece,
+                "maximum_calibration_error": maximum_gap,
+                "brier_score": float(
+                    np.mean((confidence - correctness) ** 2)
+                ),
+            }
+        )
+    return pd.DataFrame(summary_rows), pd.DataFrame(bin_rows)
+
+
 def save_figure(fig: plt.Figure, base: Path) -> None:
     fig.tight_layout(rect=(0, 0.02, 1, 0.98))
     fig.savefig(base.with_suffix(".png"), dpi=300, bbox_inches="tight")
@@ -1101,6 +1186,7 @@ def write_report(
     adjusted: pd.DataFrame,
     contrasts: pd.DataFrame,
     adherence: pd.DataFrame,
+    ece: pd.DataFrame,
 ) -> None:
     primary_summary = summaries[
         (summaries["proxy"] == "setting_matched")
@@ -1186,6 +1272,18 @@ def write_report(
             pct(row["decision_agreement_rate"]),
         ]
         for _, row in adherence.iterrows()
+    ]
+    ece_rows = [
+        [
+            row["model_display"],
+            int(row["ece_n"]),
+            int(row["occupied_bins"]),
+            pct(row["mean_confidence"]),
+            pct(row["candidate_accuracy"]),
+            pct(row["signed_calibration_gap"]),
+            pct(row["ece_10_equal_width"]),
+        ]
+        for _, row in ece.iterrows()
     ]
     aggregate_adherence = (
         adherence.groupby("setting", as_index=False)
@@ -1297,6 +1395,34 @@ def write_report(
             association_rows,
         ),
         "",
+        "## Int2 confidence calibration",
+        "",
+        "Expected calibration error (ECE) compares the confidence assigned to the "
+        "Int2 candidate with whether that same candidate was correct. We use ten "
+        "equal-width raw-confidence bins: `[0%, 10%)`, ..., `[90%, 100%]`. "
+        "Within each bin, we take the absolute difference between mean confidence "
+        "and candidate accuracy, then average these gaps weighted by bin size. "
+        "Lower ECE is better; a positive signed gap means the model is overconfident "
+        "on average. Rows without both a parsed confidence and a gradeable candidate "
+        "are excluded.",
+        "",
+        markdown_table(
+            [
+                "Model",
+                "ECE N",
+                "Occupied bins",
+                "Mean confidence",
+                "Candidate accuracy",
+                "Signed gap",
+                "10-bin ECE",
+            ],
+            ece_rows,
+        ),
+        "",
+        "This calibration calculation is not cross-rollout: confidence and "
+        "correctness refer to the same Int2 candidate. It measures confidence "
+        "calibration, not consequence sensitivity or abstention behavior.",
+        "",
         "## Confidence-adjusted consequence contrasts",
         "",
         "Positive values mean more baseline abstention under Quant-100 than "
@@ -1386,6 +1512,8 @@ def write_report(
         "outcomes (diagnostic only; Int2 outcome is not used as the primary outcome).",
         "- `quantitative_proxy_decision_adherence.csv`: quantitative-threshold "
         "diagnostic.",
+        "- `int2_ece_by_model.csv` and `int2_ece_bins_by_model.csv`: pooled "
+        "per-model ECE estimates and their complete bin-level decomposition.",
         "- `plots/int2_confidence_distribution_by_model.*`: per-model confidence "
         "histograms using every parsed Int2 report, with all four settings pooled.",
         "- `plots/`: additional publication-oriented PNG and PDF figures.",
@@ -1507,6 +1635,7 @@ def main() -> None:
     )
     comparison = rollout_comparison(raw)
     adherence = quantitative_proxy_adherence(raw)
+    ece, ece_bins = int2_ece_tables(int2)
 
     output = args.output_dir
     plots = output / "plots"
@@ -1528,6 +1657,8 @@ def main() -> None:
         "confidence_adjusted_contrasts.csv": contrasts,
         "rollout_abstention_comparison.csv": comparison,
         "quantitative_proxy_decision_adherence.csv": adherence,
+        "int2_ece_by_model.csv": ece,
+        "int2_ece_bins_by_model.csv": ece_bins,
     }
     for name, frame in exports.items():
         frame.to_csv(output / name, index=False)
@@ -1573,6 +1704,7 @@ def main() -> None:
         adjusted,
         contrasts,
         adherence,
+        ece,
     )
     print(f"Wrote analysis to {output.resolve()}")
     print(

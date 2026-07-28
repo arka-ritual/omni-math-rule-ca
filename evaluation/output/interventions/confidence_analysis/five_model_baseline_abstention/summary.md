@@ -62,6 +62,20 @@ Negative Spearman ρ and odds ratios below 1 mean higher proxy confidence is ass
 | Qwen3.5-397B | 382 | 18 | -0.086 | [-0.243, 0.069] | 0.588 | 0.851 | [0.715, 10.525] |
 | All models | 1951 | 54 | -0.106 | [-0.159, -0.048] | 0.677 | 0.792 | [0.737, 0.886] |
 
+## Int2 confidence calibration
+
+Expected calibration error (ECE) compares the confidence assigned to the Int2 candidate with whether that same candidate was correct. We use ten equal-width raw-confidence bins: `[0%, 10%)`, ..., `[90%, 100%]`. Within each bin, we take the absolute difference between mean confidence and candidate accuracy, then average these gaps weighted by bin size. Lower ECE is better; a positive signed gap means the model is overconfident on average. Rows without both a parsed confidence and a gradeable candidate are excluded.
+
+| Model | ECE N | Occupied bins | Mean confidence | Candidate accuracy | Signed gap | 10-bin ECE |
+| --- | --- | --- | --- | --- | --- | --- |
+| Claude Haiku 4.5 | 387 | 10 | 76.3% | 62.0% | 14.3% | 15.8% |
+| DeepSeek V4 Pro | 360 | 2 | 99.7% | 93.6% | 6.1% | 6.2% |
+| Gemini 3.1 Flash Lite | 398 | 8 | 95.1% | 63.1% | 32.1% | 32.6% |
+| GPT-5.4 Nano | 398 | 10 | 54.4% | 39.4% | 15.0% | 22.3% |
+| Qwen3.5-397B | 360 | 6 | 95.1% | 86.7% | 8.4% | 12.0% |
+
+This calibration calculation is not cross-rollout: confidence and correctness refer to the same Int2 candidate. It measures confidence calibration, not consequence sensitivity or abstention behavior.
+
 ## Confidence-adjusted consequence contrasts
 
 Positive values mean more baseline abstention under Quant-100 than Quant-25, or QP7 than QP6, standardized over common confidence support. QP6 and QP7 are different qualitative consequence scenarios, not points on a validated one-dimensional severity scale.
@@ -118,5 +132,6 @@ This is strong diagnostic evidence against a purely confidence-only explanation,
 - `confidence_adjusted_model_summary.csv` and `confidence_adjusted_contrasts.csv`: adjusted estimates.
 - `rollout_abstention_comparison.csv`: baseline versus Int2 intervention outcomes (diagnostic only; Int2 outcome is not used as the primary outcome).
 - `quantitative_proxy_decision_adherence.csv`: quantitative-threshold diagnostic.
+- `int2_ece_by_model.csv` and `int2_ece_bins_by_model.csv`: pooled per-model ECE estimates and their complete bin-level decomposition.
 - `plots/int2_confidence_distribution_by_model.*`: per-model confidence histograms using every parsed Int2 report, with all four settings pooled.
 - `plots/`: additional publication-oriented PNG and PDF figures.
