@@ -41,6 +41,27 @@ completion limit.
 | Qwen3.5 397B A17B | QP6 | 3 | 5 | 2 | 0 | 97 / 82 | 84.5% | 93 / 86 | 92.5% | +8.0 pp |
 | Qwen3.5 397B A17B | QP7 | 9 | 1 | 3 | 0 | 91 / 81 | 89.0% | 96 / 87 | 90.6% | +1.6 pp |
 
+### Abstention comparison
+
+Following the requested definition, each rate is **abstained / answered**; the
+underlying counts are also shown explicitly. For the original CoT prompt,
+“abstained” includes both boxed `UNSURE` and an instructed no-box abstention;
+the no-CoT prompt permits only explicit boxed `UNSURE`, so its no-box outputs
+remain protocol violations and are not counted as abstentions.
+
+| Model | QP | Original CoT abstained / answered | Original CoT abstention rate | No-CoT explicit abstained / answered | No-CoT abstention rate |
+|---|---:|---:|---:|---:|---:|
+| Claude Haiku 4.5 | QP6 | 2 / 98 | 2.0% | 5 / 94 | 5.3% |
+| Claude Haiku 4.5 | QP7 | 2 / 98 | 2.0% | 0 / 100 | 0.0% |
+| DeepSeek V4 Pro | QP6 | 2 / 93 | 2.2% | 4 / 93 | 4.3% |
+| DeepSeek V4 Pro | QP7 | 2 / 93 | 2.2% | 2 / 95 | 2.1% |
+| Gemini 3.1 Flash Lite | QP6 | 0 / 100 | 0.0% | 10 / 90 | 11.1% |
+| Gemini 3.1 Flash Lite | QP7 | 1 / 99 | 1.0% | 2 / 98 | 2.0% |
+| GPT-5.4 Nano | QP6 | 9 / 91 | 9.9% | 16 / 84 | 19.0% |
+| GPT-5.4 Nano | QP7 | 4 / 96 | 4.2% | 10 / 90 | 11.1% |
+| Qwen3.5 397B A17B | QP6 | 3 / 97 | 3.1% | 5 / 93 | 5.4% |
+| Qwen3.5 397B A17B | QP7 | 9 / 91 | 9.9% | 1 / 96 | 1.0% |
+
 The effect of removing the CoT instruction is strongly model-dependent. It
 substantially reduces selective accuracy for Gemini and GPT-5.4 Nano, is
 slightly negative for DeepSeek, is mixed for Claude, and is positive for Qwen
