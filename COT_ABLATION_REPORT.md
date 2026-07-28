@@ -62,6 +62,28 @@ remain protocol violations and are not counted as abstentions.
 | Qwen3.5 397B A17B | QP6 | 3 / 97 | 3.1% | 5 / 93 | 5.4% |
 | Qwen3.5 397B A17B | QP7 | 9 / 91 | 9.9% | 1 / 96 | 1.0% |
 
+### Abstention-rate significance comparison
+
+| Model | Condition | Original CoT abstention rate | No-CoT abstention rate | Delta abstention rate | Significant difference |
+|---|---:|---:|---:|---:|---:|
+| Claude Haiku 4.5 | QP6 | 2.0% | 5.3% | +3.3 pp | No (`p = 0.375`) |
+| Claude Haiku 4.5 | QP7 | 2.0% | 0.0% | -2.0 pp | No (`p = 0.500`) |
+| DeepSeek V4 Pro | QP6 | 2.2% | 4.3% | +2.2 pp | No (`p = 0.500`) |
+| DeepSeek V4 Pro | QP7 | 2.2% | 2.1% | -0.05 pp | No (`p = 1.000`) |
+| Gemini 3.1 Flash Lite | QP6 | 0.0% | 11.1% | +11.1 pp | **Yes (`p = 0.002`)** |
+| Gemini 3.1 Flash Lite | QP7 | 1.0% | 2.0% | +1.0 pp | No (`p = 1.000`) |
+| GPT-5.4 Nano | QP6 | 9.9% | 19.0% | +9.2 pp | No (`p = 0.092`) |
+| GPT-5.4 Nano | QP7 | 4.2% | 11.1% | +6.9 pp | **Yes (`p = 0.031`)** |
+| Qwen3.5 397B A17B | QP6 | 3.1% | 5.4% | +2.3 pp | No (`p = 0.688`) |
+| Qwen3.5 397B A17B | QP7 | 9.9% | 1.0% | -8.8 pp | **Yes (`p = 0.008`)** |
+
+Delta is no-CoT minus original CoT and is calculated from the unrounded
+abstained/answered ratios. Significance uses a two-sided exact McNemar test on
+the 100 matched question-level abstention indicators in each row; bolded cells
+are significant at the nominal 5% level. The displayed p-values are uncorrected
+across the ten comparisons. After Holm correction, only Gemini QP6 remains
+significant (`p_adj = 0.0195`).
+
 The effect of removing the CoT instruction is strongly model-dependent. It
 substantially reduces selective accuracy for Gemini and GPT-5.4 Nano, is
 slightly negative for DeepSeek, is mixed for Claude, and is positive for Qwen
