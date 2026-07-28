@@ -132,6 +132,16 @@ accuracy denominator.
 | Qwen3.5 397B A17B | QP6 | 84.5% | 87.5% | 88.8% |
 | Qwen3.5 397B A17B | QP7 | 89.0% | 84.4% | 88.3% |
 
+Across all three pairwise placement comparisons within each model-by-QP
+condition, no difference reached the nominal 5% significance level for either
+abstention or selective accuracy. Two-sided exact McNemar tests were used on
+the matched question-level abstention indicators and, for selective accuracy,
+on correctness among questions answered in both placement conditions. The
+smallest abstention p-value was 0.125 (Gemini QP6, for both original versus
+beginning and beginning versus end), and the smallest selective-accuracy
+p-value was 0.219 (Qwen QP6, original versus end). Consequently, no comparison
+is significant before or after correction for multiple comparisons.
+
 ## Summary
 
 There is no consistent directional effect from moving QPX to the beginning or
