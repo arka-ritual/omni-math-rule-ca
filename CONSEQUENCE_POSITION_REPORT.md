@@ -102,6 +102,36 @@ accuracy denominator.
 | Qwen3.5 397B A17B | QP7 | beginning | 100 | 4 | 4.0% | 0 | 96 | 81 | 84.4% |
 | Qwen3.5 397B A17B | QP7 | end | 100 | 6 | 6.0% | 0 | 94 | 83 | 88.3% |
 
+### Abstention rate
+
+| Model | Condition | Original | Beginning | End |
+|---|---:|---:|---:|---:|
+| Claude Haiku 4.5 | QP6 | 2.0% | 2.0% | 2.0% |
+| Claude Haiku 4.5 | QP7 | 2.0% | 1.0% | 1.0% |
+| DeepSeek V4 Pro | QP6 | 2.0% | 3.0% | 3.0% |
+| DeepSeek V4 Pro | QP7 | 2.0% | 2.0% | 1.0% |
+| Gemini 3.1 Flash Lite | QP6 | 0.0% | 4.0% | 0.0% |
+| Gemini 3.1 Flash Lite | QP7 | 1.0% | 0.0% | 0.0% |
+| GPT-5.4 Nano | QP6 | 9.0% | 12.0% | 7.0% |
+| GPT-5.4 Nano | QP7 | 4.0% | 5.0% | 5.0% |
+| Qwen3.5 397B A17B | QP6 | 3.0% | 4.0% | 2.0% |
+| Qwen3.5 397B A17B | QP7 | 9.0% | 4.0% | 6.0% |
+
+### Selective accuracy
+
+| Model | Condition | Original | Beginning | End |
+|---|---:|---:|---:|---:|
+| Claude Haiku 4.5 | QP6 | 62.2% | 63.3% | 60.2% |
+| Claude Haiku 4.5 | QP7 | 65.3% | 63.6% | 61.6% |
+| DeepSeek V4 Pro | QP6 | 93.5% | 91.4% | 93.4% |
+| DeepSeek V4 Pro | QP7 | 94.6% | 95.6% | 94.4% |
+| Gemini 3.1 Flash Lite | QP6 | 58.0% | 57.3% | 57.0% |
+| Gemini 3.1 Flash Lite | QP7 | 61.6% | 58.0% | 62.0% |
+| GPT-5.4 Nano | QP6 | 50.5% | 56.8% | 47.3% |
+| GPT-5.4 Nano | QP7 | 47.9% | 49.5% | 52.6% |
+| Qwen3.5 397B A17B | QP6 | 84.5% | 87.5% | 88.8% |
+| Qwen3.5 397B A17B | QP7 | 89.0% | 84.4% | 88.3% |
+
 ## Summary
 
 There is no consistent directional effect from moving QPX to the beginning or
