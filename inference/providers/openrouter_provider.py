@@ -10,7 +10,13 @@ from inference.providers.openai_provider import _chat_response_to_meta
 class OpenRouterProvider(Provider):
     """OpenRouter provider — OpenAI-compatible API at openrouter.ai."""
 
-    def __init__(self, api_key: str = None, openrouter_provider: str = None, **kwargs):
+    def __init__(
+        self,
+        api_key: str = None,
+        openrouter_provider: str = None,
+        openrouter_stream: bool = False,
+        **kwargs,
+    ):
         api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
         self.client = openai.AsyncOpenAI(
             api_key=api_key,
@@ -29,6 +35,7 @@ class OpenRouterProvider(Provider):
             }
         else:
             self._extra_body = None
+        self._stream = openrouter_stream
 
     async def generate(
         self,
@@ -52,11 +59,37 @@ class OpenRouterProvider(Provider):
         )
         if self._extra_body is not None:
             create_kwargs["extra_body"] = self._extra_body
+
+        async def request() -> str:
+            if not self._stream:
+                response = await self.client.chat.completions.create(**create_kwargs)
+                return _chat_response_to_meta(response)["text"]
+            stream = await self.client.chat.completions.create(
+                **create_kwargs, stream=True
+            )
+            content = []
+            reasoning = []
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                text = delta.content
+                if text:
+                    content.append(text)
+                thought = getattr(delta, "reasoning_content", None) or getattr(
+                    delta, "reasoning", None
+                )
+                if thought:
+                    reasoning.append(thought)
+            answer = "".join(content)
+            if reasoning:
+                return f"<think>\n{''.join(reasoning)}\n</think>\n{answer}"
+            return answer
+
         max_retries = 6
         for attempt in range(max_retries):
             try:
-                response = await self.client.chat.completions.create(**create_kwargs)
-                return response.choices[0].message.content
+                return await request()
             except (openai.RateLimitError, openai.APIStatusError) as e:
                 if isinstance(e, openai.APIStatusError) and e.status_code < 500 and e.status_code != 429:
                     raise
@@ -64,8 +97,7 @@ class OpenRouterProvider(Provider):
                 print(f"[retry {attempt+1}/{max_retries}] {e} — waiting {wait}s")
                 await asyncio.sleep(wait)
         # Final attempt — let any exception propagate.
-        response = await self.client.chat.completions.create(**create_kwargs)
-        return response.choices[0].message.content
+        return await request()
 
     async def generate_with_meta(
         self,

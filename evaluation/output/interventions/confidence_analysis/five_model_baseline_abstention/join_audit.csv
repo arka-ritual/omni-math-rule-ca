@@ -1,0 +1,21 @@
+model,model_display,setting,baseline_expected_n,baseline_n,baseline_missing_n,baseline_missing_idx,int2_row_n,int2_parsed_confidence_n,joined_row_n,joined_parsed_confidence_n,baseline_only_n,baseline_only_idx,int2_only_n,int2_only_idx
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,100,100,0,,100,100,100,100,0,,0,
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,100,100,0,,100,100,100,100,0,,0,
+claude-haiku-4-5,Claude Haiku 4.5,QP6,100,100,0,,100,100,100,100,0,,0,
+claude-haiku-4-5,Claude Haiku 4.5,QP7,100,100,0,,100,100,100,100,0,,0,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,100,94,6,"30,303,412,413,530,2752",100,93,94,93,0,,6,"30,303,412,413,530,2752"
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,100,96,4,"303,530,1053,2752",100,96,96,96,0,,4,"303,530,1053,2752"
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,100,94,6,"412,530,742,1024,1053,2752",100,93,94,93,0,,6,"412,530,742,1024,1053,2752"
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,100,93,7,"30,303,412,530,742,1053,2752",96,89,90,89,3,"427,1059,1953",6,"30,303,412,530,742,1053"
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,100,100,0,,100,100,100,100,0,,0,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,100,100,0,,100,100,100,100,0,,0,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,100,100,0,,100,100,100,100,0,,0,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,100,100,0,,100,100,100,100,0,,0,
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,100,100,0,,100,100,100,100,0,,0,
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,100,100,0,,99,99,99,99,1,2115,0,
+gpt-5.4-nano,GPT-5.4 Nano,QP6,100,99,1,1671,100,99,99,99,0,,1,1671
+gpt-5.4-nano,GPT-5.4 Nano,QP7,100,100,0,,100,100,100,100,0,,0,
+qwen3.5-397b,Qwen3.5-397B,Quant-25,100,98,2,"1024,2752",100,97,98,97,0,,2,"1024,2752"
+qwen3.5-397b,Qwen3.5-397B,Quant-100,100,99,1,530,100,98,99,98,0,,1,530
+qwen3.5-397b,Qwen3.5-397B,QP6,100,99,1,2752,100,96,99,96,0,,1,2752
+qwen3.5-397b,Qwen3.5-397B,QP7,100,99,1,1024,95,91,94,91,5,"190,530,1342,1733,2130",1,1024

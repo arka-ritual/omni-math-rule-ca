@@ -1,0 +1,251 @@
+model,model_display,setting,bin_type,bin_index,bin_label,n,abstentions,abstention_rate,ci_low,ci_high,confidence_mean,confidence_min,confidence_max
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,0,0–10%,1,0,0.0,0.0,0.7934506856227626,0.05,0.05,0.05
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,1,10–20%,3,1,0.3333333333333333,0.06149194472039621,0.7923403991979522,0.13333333333333333,0.1,0.15
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,2,20–30%,9,0,0.0,0.0,0.2991450484195441,0.25,0.25,0.25
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,3,30–40%,4,0,0.0,0.0,0.4898908364545973,0.35,0.35,0.35
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,4,40–50%,8,0,0.0,0.0,0.32440756488388023,0.44375,0.4,0.45
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,5,50–60%,0,0,,,,,,
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,6,60–70%,6,0,0.0,2.7755575615628914e-17,0.3903342879021653,0.625,0.6,0.65
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,7,70–80%,11,0,0.0,0.0,0.2588329669680317,0.7336363636363636,0.72,0.75
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,8,80–90%,2,0,0.0,0.0,0.6576197724933469,0.85,0.85,0.85
+claude-haiku-4-5,Claude Haiku 4.5,Quant-25,absolute_bin,9,90–100%,56,0,0.0,6.938893903907228e-18,0.06419393671876342,0.9673214285714286,0.92,0.99
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,0,0–10%,3,1,0.3333333333333333,0.06149194472039621,0.7923403991979522,0.03333333333333333,0.0,0.05
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,1,10–20%,4,0,0.0,0.0,0.4898908364545973,0.15,0.15,0.15
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,2,20–30%,7,0,0.0,5.551115123125783e-17,0.35433043506668743,0.24285714285714285,0.2,0.25
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,3,30–40%,5,0,0.0,0.0,0.43448246478317476,0.35,0.35,0.35
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,4,40–50%,7,0,0.0,5.551115123125783e-17,0.35433043506668743,0.45000000000000007,0.45,0.45
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,5,50–60%,0,0,,,,,,
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,6,60–70%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.6333333333333333,0.6,0.65
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,7,70–80%,16,0,0.0,0.0,0.1936076805344365,0.7362500000000001,0.7,0.78
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,8,80–90%,2,0,0.0,0.0,0.6576197724933469,0.835,0.82,0.85
+claude-haiku-4-5,Claude Haiku 4.5,Quant-100,absolute_bin,9,90–100%,53,0,0.0,0.0,0.06758198857654187,0.967169811320755,0.92,1.0
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,0,0–10%,2,0,0.0,0.0,0.6576197724933469,0.05,0.05,0.05
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,1,10–20%,3,1,0.3333333333333333,0.06149194472039621,0.7923403991979522,0.13333333333333333,0.1,0.15
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,2,20–30%,8,0,0.0,0.0,0.32440756488388023,0.25,0.25,0.25
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,3,30–40%,9,0,0.0,0.0,0.2991450484195441,0.34444444444444444,0.3,0.35
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,4,40–50%,4,0,0.0,0.0,0.4898908364545973,0.45,0.45,0.45
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,5,50–60%,0,0,,,,,,
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,6,60–70%,4,1,0.25,0.04558726080970055,0.6993581574175981,0.65,0.65,0.65
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,7,70–80%,17,0,0.0,0.0,0.1843181350088518,0.7388235294117648,0.7,0.75
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,8,80–90%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.85,0.85,0.85
+claude-haiku-4-5,Claude Haiku 4.5,QP6,absolute_bin,9,90–100%,50,0,0.0,6.938893903907228e-18,0.07134759913335872,0.9716000000000002,0.92,0.99
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,0,0–10%,1,1,1.0,0.20654931437723745,1.0,0.0,0.0,0.0
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,1,10–20%,2,0,0.0,0.0,0.6576197724933469,0.15,0.15,0.15
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,2,20–30%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.2333333333333333,0.2,0.25
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,3,30–40%,6,0,0.0,2.7755575615628914e-17,0.3903342879021653,0.3416666666666666,0.3,0.35
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,4,40–50%,9,0,0.0,0.0,0.2991450484195441,0.44999999999999996,0.45,0.45
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,5,50–60%,1,0,0.0,0.0,0.7934506856227626,0.55,0.55,0.55
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,6,60–70%,6,0,0.0,2.7755575615628914e-17,0.3903342879021653,0.65,0.65,0.65
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,7,70–80%,12,0,0.0,2.7755575615628914e-17,0.24249400665524085,0.7275,0.7,0.75
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,8,80–90%,5,0,0.0,0.0,0.43448246478317476,0.85,0.85,0.85
+claude-haiku-4-5,Claude Haiku 4.5,QP7,absolute_bin,9,90–100%,55,0,0.0,0.0,0.06528490111708637,0.9690909090909094,0.9,0.99
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,0,0–10%,7,2,0.2857142857142857,0.08221892400405678,0.6410655481673808,0.03571428571428571,0.0,0.05
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,1,10–20%,12,2,0.16666666666666666,0.04696514218385378,0.4480308622529734,0.14166666666666664,0.1,0.15
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,2,20–30%,27,0,0.0,0.0,0.12455502974186705,0.24629629629629632,0.2,0.25
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,3,30–40%,24,0,0.0,1.3877787807814457e-17,0.13797620467498017,0.34583333333333327,0.3,0.35
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,4,40–50%,28,0,0.0,1.3877787807814457e-17,0.12064330476584563,0.4482142857142856,0.4,0.45
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,5,50–60%,1,0,0.0,0.0,0.7934506856227626,0.55,0.55,0.55
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,6,60–70%,19,1,0.05263157894736842,0.009351994062300362,0.24638731166898786,0.6394736842105263,0.6,0.65
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,7,70–80%,56,0,0.0,6.938893903907228e-18,0.06419393671876342,0.7346428571428572,0.7,0.78
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,8,80–90%,12,0,0.0,2.7755575615628914e-17,0.24249400665524085,0.8474999999999998,0.82,0.85
+claude-haiku-4-5,Claude Haiku 4.5,Pooled,absolute_bin,9,90–100%,214,0,0.0,0.0,0.017634195260581874,0.9687383177570094,0.9,1.0
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,0,0–10%,5,1,0.2,0.03622410863243014,0.6244653702374747,0.0,0.0,0.0
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,1,10–20%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,2,20–30%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,3,30–40%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,4,40–50%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,5,50–60%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,6,60–70%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,7,70–80%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,8,80–90%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-25,absolute_bin,9,90–100%,88,1,0.011363636363636364,0.0020087853177044694,0.061594938922985634,0.9987500000000001,0.98,1.0
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,0,0–10%,4,1,0.25,0.04558726080970055,0.6993581574175981,0.0,0.0,0.0
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,1,10–20%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,2,20–30%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,3,30–40%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,4,40–50%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,5,50–60%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,6,60–70%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,7,70–80%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,8,80–90%,1,0,0.0,0.0,0.7934506856227626,0.85,0.85,0.85
+deepseek-v4-pro,DeepSeek V4 Pro,Quant-100,absolute_bin,9,90–100%,91,0,0.0,0.0,0.04050400392888021,0.997901098901099,0.9,1.0
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,0,0–10%,3,1,0.3333333333333333,0.06149194472039621,0.7923403991979522,0.0,0.0,0.0
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,1,10–20%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,2,20–30%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,3,30–40%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,4,40–50%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,5,50–60%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,6,60–70%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,7,70–80%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,8,80–90%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP6,absolute_bin,9,90–100%,90,1,0.011111111111111112,0.0019640841009183445,0.06028408311753451,0.9983333333333333,0.95,1.0
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,0,0–10%,2,0,0.0,0.0,0.6576197724933469,0.0,0.0,0.0
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,1,10–20%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,2,20–30%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,3,30–40%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,4,40–50%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,5,50–60%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,6,60–70%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,7,70–80%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,8,80–90%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,QP7,absolute_bin,9,90–100%,87,1,0.011494252873563218,0.0020319077375923027,0.06227197835723791,0.9964367816091956,0.9,1.0
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,0,0–10%,14,3,0.21428571428571427,0.07571386712693184,0.47589230586600295,0.0,0.0,0.0
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,1,10–20%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,2,20–30%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,3,30–40%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,4,40–50%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,5,50–60%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,6,60–70%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,7,70–80%,0,0,,,,,,
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,8,80–90%,1,0,0.0,0.0,0.7934506856227626,0.85,0.85,0.85
+deepseek-v4-pro,DeepSeek V4 Pro,Pooled,absolute_bin,9,90–100%,356,3,0.008426966292134831,0.002869985876132245,0.02447944421162771,0.9978623595505619,0.9,1.0
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,0,0–10%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,1,10–20%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.10000000000000002,0.1,0.1
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,2,20–30%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,3,30–40%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,4,40–50%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,5,50–60%,2,0,0.0,0.0,0.6576197724933469,0.5,0.5,0.5
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,6,60–70%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,7,70–80%,1,0,0.0,0.0,0.7934506856227626,0.7,0.7,0.7
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,8,80–90%,1,0,0.0,0.0,0.7934506856227626,0.85,0.85,0.85
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-25,absolute_bin,9,90–100%,93,0,0.0,0.0,0.03966750261173514,0.9897849462365591,0.9,1.0
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,0,0–10%,2,0,0.0,0.0,0.6576197724933469,0.025,0.0,0.05
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,1,10–20%,2,0,0.0,0.0,0.6576197724933469,0.1,0.1,0.1
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,2,20–30%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,3,30–40%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,4,40–50%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,5,50–60%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,6,60–70%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,7,70–80%,1,0,0.0,0.0,0.7934506856227626,0.7,0.7,0.7
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,8,80–90%,2,0,0.0,0.0,0.6576197724933469,0.825,0.8,0.85
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Quant-100,absolute_bin,9,90–100%,93,0,0.0,0.0,0.03966750261173514,0.988709677419355,0.9,1.0
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,0,0–10%,1,0,0.0,0.0,0.7934506856227626,0.05,0.05,0.05
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,1,10–20%,2,0,0.0,0.0,0.6576197724933469,0.1,0.1,0.1
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,2,20–30%,1,0,0.0,0.0,0.7934506856227626,0.2,0.2,0.2
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,3,30–40%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,4,40–50%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,5,50–60%,1,0,0.0,0.0,0.7934506856227626,0.5,0.5,0.5
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,6,60–70%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,7,70–80%,1,0,0.0,0.0,0.7934506856227626,0.7,0.7,0.7
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,8,80–90%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP6,absolute_bin,9,90–100%,94,3,0.031914893617021274,0.010912627468307706,0.08967314608122352,0.9840425531914894,0.9,1.0
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,0,0–10%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,1,10–20%,1,0,0.0,0.0,0.7934506856227626,0.1,0.1,0.1
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,2,20–30%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,3,30–40%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,4,40–50%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,5,50–60%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,6,60–70%,1,0,0.0,0.0,0.7934506856227626,0.6,0.6,0.6
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,7,70–80%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,8,80–90%,1,0,0.0,0.0,0.7934506856227626,0.8,0.8,0.8
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,QP7,absolute_bin,9,90–100%,97,1,0.010309278350515464,0.0018221648082868518,0.05610499024289903,0.9835051546391752,0.9,1.0
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,0,0–10%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.03333333333333333,0.0,0.05
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,1,10–20%,8,0,0.0,0.0,0.32440756488388023,0.1,0.1,0.1
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,2,20–30%,1,0,0.0,0.0,0.7934506856227626,0.2,0.2,0.2
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,3,30–40%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,4,40–50%,0,0,,,,,,
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,5,50–60%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.5,0.5,0.5
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,6,60–70%,1,0,0.0,0.0,0.7934506856227626,0.6,0.6,0.6
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,7,70–80%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.6999999999999998,0.7,0.7
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,8,80–90%,4,0,0.0,0.0,0.4898908364545973,0.825,0.8,0.85
+gemini-3.1-flash-lite-preview,Gemini 3.1 Flash Lite,Pooled,absolute_bin,9,90–100%,377,4,0.010610079575596816,0.004133573362110017,0.026959309375400087,0.986472148541114,0.9,1.0
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,0,0–10%,4,0,0.0,0.0,0.4898908364545973,0.0425,0.01,0.06
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,1,10–20%,22,2,0.09090909090909091,0.025295428990995267,0.27814946841605814,0.13500000000000004,0.12,0.18
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,2,20–30%,7,0,0.0,5.551115123125783e-17,0.35433043506668743,0.23714285714285716,0.2,0.28
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,3,30–40%,3,0,0.0,5.551115123125783e-17,0.5614970317550454,0.33666666666666667,0.32,0.35
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,4,40–50%,2,0,0.0,0.0,0.6576197724933469,0.44999999999999996,0.42,0.48
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,5,50–60%,4,0,0.0,0.0,0.4898908364545973,0.5475000000000001,0.54,0.56
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,6,60–70%,16,0,0.0,0.0,0.1936076805344365,0.62,0.62,0.62
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,7,70–80%,24,0,0.0,1.3877787807814457e-17,0.13797620467498017,0.7445833333333334,0.72,0.78
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,8,80–90%,4,0,0.0,0.0,0.4898908364545973,0.855,0.84,0.86
+gpt-5.4-nano,GPT-5.4 Nano,Quant-25,absolute_bin,9,90–100%,14,1,0.07142857142857142,0.012722215247890939,0.31468704424151117,0.9492857142857142,0.9,0.99
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,0,0–10%,5,1,0.2,0.03622410863243014,0.6244653702374747,0.055999999999999994,0.02,0.08
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,1,10–20%,19,3,0.15789473684210525,0.05520471638534141,0.37565475270329074,0.1405263157894737,0.12,0.18
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,2,20–30%,5,0,0.0,0.0,0.43448246478317476,0.22200000000000003,0.2,0.26
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,3,30–40%,4,0,0.0,0.0,0.4898908364545973,0.3325,0.32,0.35
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,4,40–50%,9,0,0.0,0.0,0.2991450484195441,0.4244444444444444,0.42,0.46
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,5,50–60%,5,0,0.0,0.0,0.43448246478317476,0.56,0.55,0.58
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,6,60–70%,17,0,0.0,0.0,0.1843181350088518,0.6252941176470588,0.62,0.68
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,7,70–80%,14,0,0.0,1.3877787807814457e-17,0.2153108027376358,0.7421428571428572,0.72,0.78
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,8,80–90%,4,0,0.0,0.0,0.4898908364545973,0.8524999999999999,0.83,0.86
+gpt-5.4-nano,GPT-5.4 Nano,Quant-100,absolute_bin,9,90–100%,17,0,0.0,0.0,0.1843181350088518,0.9435294117647058,0.9,0.99
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,0,0–10%,2,1,0.5,0.09453120573423074,0.9054687942657693,0.025,0.0,0.05
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,1,10–20%,16,2,0.125,0.03497748774324047,0.36022827265758695,0.148125,0.12,0.18
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,2,20–30%,9,0,0.0,0.0,0.2991450484195441,0.2288888888888889,0.2,0.27
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,3,30–40%,4,1,0.25,0.04558726080970055,0.6993581574175981,0.35250000000000004,0.35,0.36
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,4,40–50%,6,1,0.16666666666666666,0.030053369748306635,0.5635028221864702,0.43166666666666664,0.42,0.46
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,5,50–60%,2,0,0.0,0.0,0.6576197724933469,0.55,0.55,0.55
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,6,60–70%,15,3,0.2,0.07047549346981563,0.45185448715169363,0.6246666666666666,0.62,0.68
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,7,70–80%,15,2,0.13333333333333333,0.03736125910306537,0.37881982832322364,0.7486666666666667,0.72,0.78
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,8,80–90%,12,0,0.0,2.7755575615628914e-17,0.24249400665524085,0.8533333333333334,0.82,0.86
+gpt-5.4-nano,GPT-5.4 Nano,QP6,absolute_bin,9,90–100%,18,1,0.05555555555555555,0.009875190978303097,0.25757300781872594,0.9594444444444444,0.9,0.99
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,0,0–10%,2,0,0.0,0.0,0.6576197724933469,0.035,0.02,0.05
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,1,10–20%,24,1,0.041666666666666664,0.0073934561655057685,0.20241806478655938,0.15166666666666664,0.1,0.18
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,2,20–30%,10,1,0.1,0.017876213095072896,0.4041500267952385,0.23800000000000004,0.21,0.28
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,3,30–40%,6,0,0.0,2.7755575615628914e-17,0.3903342879021653,0.34500000000000003,0.32,0.38
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,4,40–50%,2,0,0.0,0.0,0.6576197724933469,0.47,0.46,0.48
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,5,50–60%,5,0,0.0,0.0,0.43448246478317476,0.5720000000000001,0.56,0.58
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,6,60–70%,11,0,0.0,0.0,0.2588329669680317,0.6218181818181819,0.62,0.63
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,7,70–80%,17,0,0.0,0.0,0.1843181350088518,0.7488235294117648,0.7,0.78
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,8,80–90%,10,0,0.0,0.0,0.2775327998628892,0.852,0.82,0.88
+gpt-5.4-nano,GPT-5.4 Nano,QP7,absolute_bin,9,90–100%,13,1,0.07692307692307693,0.013710421242556586,0.3331395092109959,0.963076923076923,0.92,0.99
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,0,0–10%,13,2,0.15384615384615385,0.043258178358081184,0.4223463101948254,0.043846153846153854,0.0,0.08
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,1,10–20%,81,8,0.09876543209876543,0.050900116268798354,0.18296501401647308,0.14382716049382716,0.1,0.18
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,2,20–30%,31,1,0.03225806451612903,0.005717221525416816,0.16194105164724906,0.2325806451612903,0.2,0.28
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,3,30–40%,17,1,0.058823529411764705,0.010460400984997592,0.26982030637575405,0.3423529411764706,0.32,0.38
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,4,40–50%,19,1,0.05263157894736842,0.009351994062300362,0.24638731166898786,0.4342105263157895,0.42,0.48
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,5,50–60%,16,0,0.0,0.0,0.1936076805344365,0.559375,0.54,0.58
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,6,60–70%,59,3,0.05084745762711865,0.01744271747299006,0.139165022152769,0.6230508474576271,0.62,0.68
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,7,70–80%,70,2,0.02857142857142857,0.007870611945441225,0.09832256118423902,0.746,0.7,0.78
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,8,80–90%,30,0,0.0,0.0,0.11351339317396876,0.8529999999999999,0.82,0.88
+gpt-5.4-nano,GPT-5.4 Nano,Pooled,absolute_bin,9,90–100%,62,3,0.04838709677419355,0.016591685850580726,0.1328803792732396,0.9535483870967741,0.9,0.99
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,0,0–10%,4,1,0.25,0.04558726080970055,0.6993581574175981,0.0,0.0,0.0
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,1,10–20%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,2,20–30%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,3,30–40%,1,0,0.0,0.0,0.7934506856227626,0.3,0.3,0.3
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,4,40–50%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,5,50–60%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,6,60–70%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,7,70–80%,1,0,0.0,0.0,0.7934506856227626,0.7,0.7,0.7
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,8,80–90%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-25,absolute_bin,9,90–100%,91,5,0.054945054945054944,0.023695099703426786,0.12224802467282925,0.9896703296703296,0.9,1.0
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,0,0–10%,4,0,0.0,0.0,0.4898908364545973,0.0125,0.0,0.05
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,1,10–20%,2,1,0.5,0.09453120573423074,0.9054687942657693,0.1,0.1,0.1
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,2,20–30%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,3,30–40%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,4,40–50%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,5,50–60%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,6,60–70%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,7,70–80%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,8,80–90%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Quant-100,absolute_bin,9,90–100%,92,2,0.021739130434782608,0.0059820412288536864,0.07583493982695838,0.9934782608695653,0.9,1.0
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,0,0–10%,1,0,0.0,0.0,0.7934506856227626,0.05,0.05,0.05
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,1,10–20%,2,0,0.0,0.0,0.6576197724933469,0.1,0.1,0.1
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,2,20–30%,2,1,0.5,0.09453120573423074,0.9054687942657693,0.225,0.2,0.25
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,3,30–40%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,4,40–50%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,5,50–60%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,6,60–70%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,7,70–80%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,8,80–90%,1,0,0.0,0.0,0.7934506856227626,0.8,0.8,0.8
+qwen3.5-397b,Qwen3.5-397B,QP6,absolute_bin,9,90–100%,90,4,0.044444444444444446,0.01741724185270873,0.10876855032812233,0.9942222222222221,0.9,1.0
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,0,0–10%,6,0,0.0,2.7755575615628914e-17,0.3903342879021653,0.008333333333333333,0.0,0.05
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,1,10–20%,1,0,0.0,0.0,0.7934506856227626,0.1,0.1,0.1
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,2,20–30%,1,1,1.0,0.20654931437723745,1.0,0.2,0.2,0.2
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,3,30–40%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,4,40–50%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,5,50–60%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,6,60–70%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,7,70–80%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,8,80–90%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,QP7,absolute_bin,9,90–100%,83,3,0.03614457831325301,0.012367803271745428,0.10095892976960381,0.9938554216867471,0.9,1.0
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,0,0–10%,15,1,0.06666666666666667,0.011866895493268553,0.2981652987378003,0.010000000000000002,0.0,0.05
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,1,10–20%,5,1,0.2,0.03622410863243014,0.6244653702374747,0.1,0.1,0.1
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,2,20–30%,3,2,0.6666666666666666,0.2076596008020477,0.9385080552796037,0.21666666666666667,0.2,0.25
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,3,30–40%,1,0,0.0,0.0,0.7934506856227626,0.3,0.3,0.3
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,4,40–50%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,5,50–60%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,6,60–70%,0,0,,,,,,
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,7,70–80%,1,0,0.0,0.0,0.7934506856227626,0.7,0.7,0.7
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,8,80–90%,1,0,0.0,0.0,0.7934506856227626,0.8,0.8,0.8
+qwen3.5-397b,Qwen3.5-397B,Pooled,absolute_bin,9,90–100%,356,14,0.03932584269662921,0.02356776203786188,0.06491970387295315,0.9927808988764043,0.9,1.0

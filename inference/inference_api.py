@@ -74,7 +74,11 @@ async def run_inference(args):
     # makes resume work correctly when re-running with a smaller num_samples
     # than the original run. `random.sample(seq, k)` does not have this
     # property — its output for k=N₁ and k=N₂ can have non-trivial differences.
-    if args.num_samples > 0:
+    if args.idx is not None:
+        dataset = [item for item in dataset if item["idx"] == args.idx]
+        if not dataset:
+            raise ValueError(f"idx {args.idx} was not found in {args.data_file}")
+    elif args.num_samples > 0:
         rng = random.Random(args.seed)
         indices = list(range(len(dataset)))
         if args.start > 0:
@@ -145,6 +149,8 @@ async def run_inference(args):
         provider_kwargs["base_model_timeout"] = args.base_model_timeout
     if args.openrouter_provider:
         provider_kwargs["openrouter_provider"] = args.openrouter_provider
+    if args.openrouter_stream:
+        provider_kwargs["openrouter_stream"] = True
     provider = get_provider(args.provider, **provider_kwargs)
 
     # --- Async inference with immediate writes ---
@@ -212,6 +218,12 @@ def parse_args():
     parser.add_argument("--concurrency", type=int, default=50, help="Max concurrent API calls (default: 50)")
     parser.add_argument("--num_samples", type=int, default=100, help="Number of problems to sample (0=all, default: 100)")
     parser.add_argument("--start", type=int, default=0, help="Start index in dataset (default: 0)")
+    parser.add_argument(
+        "--idx",
+        type=int,
+        default=None,
+        help="Run exactly one dataset item by its idx value (overrides sampling).",
+    )
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling (default: 0)")
     parser.add_argument("--api_key", type=str, default=None, help="API key (overrides env variable)")
     parser.add_argument("--openrouter-provider", "--openrouter_provider",
@@ -220,6 +232,15 @@ def parse_args():
                              "(e.g. 'DeepSeek'). Sets allow_fallbacks=false, so the "
                              "request fails loudly if that upstream isn't available "
                              "instead of silently being routed elsewhere.")
+    parser.add_argument(
+        "--openrouter-stream",
+        action="store_true",
+        help=(
+            "Receive OpenRouter responses as a stream. This is useful for "
+            "very long completions that otherwise trigger response-level "
+            "JSON decoding failures."
+        ),
+    )
     parser.add_argument("--prompt-in-user", action="store_true", dest="prompt_in_user", help="Put prompt text in user message instead of system prompt")
     parser.add_argument("--base_model", action="store_true", help="Tell the vllm provider this is a base (non-instruction-tuned) model — uses /v1/completions instead of /v1/chat/completions")
     parser.add_argument("--base_model_timeout", type=float, default=60.0,
